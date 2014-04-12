@@ -1,0 +1,26 @@
+{
+   "name": "cicek",
+   "version": "1.0.0",
+   "description": "HTTP server."
+   "dependencies": {
+      "dale": "1.0.6",
+      "mime": "1.2.11",
+      "teishi": "1.0.6"
+   },
+   "main": "cicek.js",
+   "author": "Federico Pereiro <fpereiro@gmail.com>",
+   "contributors": ["Federico Pereiro <fpereiro@gmail.com>"],
+   "license": [{
+      "type": "Public Domain",
+      "url": "http://github.com/fpereiro/cicek#license"
+   }],
+   "keywords": ["html"],
+   "repository" : {
+      "type": "git",
+      "url": "http://github.com/fpereiro/cicek.git"
+   },
+   "bugs": {
+      "url": "http://github.com/fpereiro/cicek/issues",
+      "email": "fpereiro@gmail.com"
+   }
+}
