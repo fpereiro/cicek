@@ -10,14 +10,14 @@ Please refer to README.md to see what this is about.
 
    // *** SETUP ***
 
-   log = console.log;
+   var log = console.log;
 
    var fs = require ('fs');
 
-   // We require the node-mime library.
+   // Require the node-mime library.
    var mime = require ('mime');
 
-   // We check for dale and teishi.
+   // Check for dale and teishi.
    var dale = require ('dale');
    var teishi = require ('teishi');
 
@@ -202,14 +202,14 @@ Please refer to README.md to see what this is about.
 
    // These helper functions take two arguments, a response plus some other argument, and are usually called by route functions (written below).
 
-   // cicek.head is the function we use for writing the head of a response. It validates the response and head, and then writes the head to the response. If any input is invalid, it returns false without writing the head.
+   // cicek.head is the function used for writing the head of a response. It validates the response and head, and then writes the head to the response. If any input is invalid, it returns false without writing the head.
    cicek.head = function (response, head) {
       if (cicek.v.response (response) === false) return false;
       if (cicek.v.head (head)) return false;
       response.writeHead (head [0], head [1]);
    }
 
-   // cicek.end is the function we use for writing the body of a response and then ending it. It receives a response and a body. The body is stringified if it's not a string, and then it is written to the response, after which the response is ended.
+   // cicek.end is the function used for writing the body of a response and then ending it. It receives a response and a body. The body is stringified if it's not a string, and then it is written to the response, after which the response is ended.
    cicek.end = function (response, body) {
       if (cicek.v.response (response) === false) return false;
       if (teishi.type (body) !== 'string') body = teishi.s (body);
@@ -303,7 +303,7 @@ Please refer to README.md to see what this is about.
       // Validation of the inputs.
       if (cicek.v.request (request) && cicek.v.response (response) && cicek.v.route_object (route_object) !== true) return false;
 
-      // We decode the url.
+      // Decode the url.
       request.url = decodeURIComponent (request.url);
 
       // Remove first and last slash.
@@ -312,14 +312,14 @@ Please refer to README.md to see what this is about.
       // Convert request method to lowercase.
       request.method = request.method.toLowerCase ();
 
-      // If the http verb contained in the request is not in the route_object, we return a 405 code and a list of supported methods.
+      // If the http verb contained in the request is not in the route_object, return a 405 code and a list of supported methods.
       if (route_object [request.method] === undefined) {
          cicek.head ([405, {'Allow': dale.do (route_object, function (v, k) {return k}).join (', ')}]);
          cicek.end ();
          return;
       }
 
-      // We check that the request headers are valid.
+      // Check that the request headers are valid.
       var request_header_test = teishi.stop ({
          compare: dale.do (request.headers, function (v, k) {return k}),
          to: cicek.constants.HTTP_request_headers,
@@ -327,19 +327,19 @@ Please refer to README.md to see what this is about.
          label: 'HTTP request headers'
       }, true);
 
-      // If they are not, we return a 400 code.
+      // If they are not, return a 400 code.
       if (request_header_test [0] === true) {
          cicek.head (400);
          cicek.end (request_header_test [1]);
          return;
       }
 
-      // We now find the current_route.
+      // Find the current_route.
       var current_route = route_object [request.method] [request.url];
 
-      // If the current_route is not found, we a) try to find matching wildcards, and failing that, b) we assign the current_route to the default key.
+      // If the current_route is not found, a) try to find matching wildcards, and failing that, b) assign the current_route to the default key.
       if (current_route === undefined) {
-         // We test the wildcards.
+         // Test the wildcards.
          dale.stop_on (route_object [request.method], true, function (v, k) {
             var regex = new RegExp ('^' + k.replace (/\*/g, '.+') + '$');
             if (request.url.match (regex) !== null) {
@@ -347,7 +347,7 @@ Please refer to README.md to see what this is about.
                return true;
             }
          });
-         // If after testing for wildcards we still haven't found a route, we assign the default route to this request.
+         // If after testing for wildcards we still haven't found a route, assign the default route to this request.
          current_route === undefined ? current_route = route_object [request.method].default : '';
       }
 
