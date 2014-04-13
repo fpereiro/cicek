@@ -164,17 +164,36 @@ Please refer to README.md to see what this is about.
             else return ['Each cicek route method', 'must have a default value that is not undefined', 'but instead cicek route method is', compare];
          }
       }, {
-         compare: dale.do (route_object, function (v) {return v}),
+         compare: route_object,
          multi: 'each',
          test: function (compare, to, label, label_to, label_of) {
-            if (teishi.type (compare) === 'function') return true;
-            if (teishi.type (compare) !== 'array') {
-               return ['Each cicek route entry must be either an array or a function, but instead is', compare, 'with type', teishi.type (compare)];
-            }
-            if (compare.length !== 2 || teishi.type (compare [0]) !== 'function' || teishi.type (compare [1]) !== 'array') {
-               return ['If the cicek route entry is an array, it has to have length 2 and contain a function and an array of arguments, but instead is', compare];
-            }
-            else return true;
+            dale.stop_on (compare, false, function (v) {
+               if (teishi.stop ({
+                  compare: v,
+                  to: ['function', 'array'],
+                  test: teishi.test.type,
+                  multi: 'one_of',
+                  label: 'cicek route function'
+               })) return false;
+               if (teishi.type (v) === 'array') {
+                  if (teishi.stop ([{
+                     compare: v.length,
+                     to: 2,
+                     label: 'cicek route array'
+                  }, {
+                     compare: v [0],
+                     to: 'function',
+                     test: teishi.test.type,
+                     label: 'cicek route function'
+                  }, {
+                     compare: v [1],
+                     to: 'array',
+                     test: teishi.test.type,
+                     label: 'cicek route argument array'
+                  }])) return false;
+               }
+               return true;
+            });
          }
       }])) return false;
       return true;
@@ -191,7 +210,7 @@ Please refer to README.md to see what this is about.
 
    // A request is always a readable and writable stream.
    cicek.v.response = function (response) {
-      if (response.readable === true && response.writable === true) return true;
+      if (response.connection && response.connection.readable && response.connection.writable) return true;
       else {
          log ('Response must be a readable and writable stream.');
          return false;
@@ -200,13 +219,12 @@ Please refer to README.md to see what this is about.
 
    // *** HELPER FUNCTIONS ***
 
-   // These helper functions take two arguments, a response plus some other argument, and are usually called by route functions (written below).
-
    // cicek.head is the function used for writing the head of a response. It validates the response and head, and then writes the head to the response. If any input is invalid, it returns false without writing the head.
    cicek.head = function (response, head) {
       if (cicek.v.response (response) === false) return false;
-      if (cicek.v.head (head)) return false;
-      response.writeHead (head [0], head [1]);
+      if (cicek.v.head (head) === false) return false;
+      if (teishi.type (head) === 'number') response.writeHead (head);
+      else                                 response.writeHead (head [0], head [1]);
    }
 
    // cicek.end is the function used for writing the body of a response and then ending it. It receives a response and a body. The body is stringified if it's not a string, and then it is written to the response, after which the response is ended.
@@ -216,23 +234,21 @@ Please refer to README.md to see what this is about.
       response.end (body);
    }
 
+   // *** ROUTER FUNCTIONS ***
+
    // cicek.wJSON (short for "write JSON") receives a response and a JSON. If both are valid, it writes the JSON into the response with the proper header, otherwise returns false.
-   cicek.wJSON = function (response, JSON) {
+   cicek.wJSON = function (request, response, JSON) {
       if (cicek.v.response (response) && (teishi.s (JSON) !== false) !== true) return false;
-      cicek.head ([200, {'Content-Type': 'application/json'}]);
-      cicek.end (JSON);
+      cicek.head (response, [200, {'Content-Type': 'application/json'}]);
+      cicek.end (response, JSON);
    }
 
    // cicek.wHTML (short for "write HTML") receives a response and a string with HTML. If both are valid, it writes the HTML into the response with the proper header, otherwise returns false.
-   cicek.wHTML = function (response, HTML) {
+   cicek.wHTML = function (request, response, HTML) {
       if (cicek.v.response (response) && (teishi.type (HTML) === 'string') !== true) return false;
-      cicek.head ([200, {'Content-Type': 'text/html'}]);
-      cicek.end (HTML);
+      cicek.head (response, [200, {'Content-Type': 'text/html'}]);
+      cicek.end (response, HTML);
    }
-
-   // *** ROUTE FUNCTIONS ***
-
-   // Route functions take three arguments, a request, a response and some other argument. They are specified in route entries are are usually invoked by cicek.router (explained below).
 
    /*
        cicek.parse receives a request, a response and a callback. It gathers the data chunks into a string and then calls the callback, passing it the response and the string with the data.
@@ -261,8 +277,8 @@ Please refer to README.md to see what this is about.
       if (cicek.v.request (request) && cicek.v.response (response) && (teishi.type (callback) === 'function') !== true) return false;
       cicek.parse (request, response, function (response, string) {
          if (teishi.p (string) === false) {
-            cicek.head (400);
-            cicek.end ('Expecting JSON, but instead received ' + string);
+            cicek.head (response, 400);
+            cicek.end (response, 'Expecting JSON, but instead received ' + string);
          }
          else {
             callback (response, teishi.p (string));
@@ -281,15 +297,14 @@ Please refer to README.md to see what this is about.
       }
       var file_found = dale.stop_on (paths, true, function (v) {
          if (fs.existsSync (v + request.url)) {
-            cicek.head ([200, {'Content-Type': mime.lookup (v + request.url)}]);
+            cicek.head (response, [200, {'Content-Type': mime.lookup (v + request.url)}]);
             fs.createReadStream (v + request.url).pipe (response);
             return true;
          }
       });
-
       if (! file_found) {
-         cicek.head (404);
-         cicek.end ();
+         cicek.head (response, 404);
+         cicek.end (response);
       }
    }
 
@@ -314,8 +329,8 @@ Please refer to README.md to see what this is about.
 
       // If the http verb contained in the request is not in the route_object, return a 405 code and a list of supported methods.
       if (route_object [request.method] === undefined) {
-         cicek.head ([405, {'Allow': dale.do (route_object, function (v, k) {return k}).join (', ')}]);
-         cicek.end ();
+         cicek.head (response, [405, {'Allow': dale.do (route_object, function (v, k) {return k}).join (', ')}]);
+         cicek.end (response);
          return;
       }
 
@@ -329,8 +344,8 @@ Please refer to README.md to see what this is about.
 
       // If they are not, return a 400 code.
       if (request_header_test [0] === true) {
-         cicek.head (400);
-         cicek.end (request_header_test [1]);
+         cicek.head (response, 400);
+         cicek.end (response, request_header_test [1]);
          return;
       }
 
