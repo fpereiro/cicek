@@ -1,6 +1,6 @@
 {
    "name": "cicek",
-   "version": "1.0.0",
+   "version": "0.1.0",
    "description": "HTTP server.",
    "dependencies": {
       "dale": "1.0.6",
@@ -14,7 +14,7 @@
       "type": "Public Domain",
       "url": "http://github.com/fpereiro/cicek#license"
    }],
-   "keywords": ["html"],
+   "keywords": ["http", "server"],
    "repository" : {
       "type": "git",
       "url": "http://github.com/fpereiro/cicek.git"

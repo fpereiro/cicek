@@ -1,5 +1,5 @@
 /*
-cicek - v1.0.0
+cicek - v0.1.0
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -177,19 +177,14 @@ Please refer to README.md to see what this is about.
                })) return false;
                if (teishi.type (v) === 'array') {
                   if (teishi.stop ([{
-                     compare: v.length,
-                     to: 2,
-                     label: 'cicek route array'
-                  }, {
                      compare: v [0],
                      to: 'function',
                      test: teishi.test.type,
                      label: 'cicek route function'
                   }, {
-                     compare: v [1],
-                     to: 'array',
-                     test: teishi.test.type,
-                     label: 'cicek route argument array'
+                     compare: v [1] === undefined,
+                     to: false,
+                     label: 'cicek route argument must not be undefined'
                   }])) return false;
                }
                return true;
@@ -232,6 +227,23 @@ Please refer to README.md to see what this is about.
       if (cicek.v.response (response) === false) return false;
       if (teishi.type (body) !== 'string') body = teishi.s (body);
       response.end (body);
+   }
+
+   // cicek.rCookie takes a request and a string. If any of these inputs is invalid, it returns false. If a cookie is found that matches the string, the value of the cookie is returned. If not, false is returned.
+
+   cicek.rCookie = function (request, string) {
+      if ((cicek.v.request (request) && teishi.type (string) === 'string') === false) return false;
+      var cookie = false;
+      if (request.headers.cookie) {
+         dale.stop_on (request.headers.cookie.split (';'), true, function (v) {
+            var regex = new RegExp ('^\\s*' + string + '=');
+            if (v.match (regex) !== null) {
+               cookie = v.replace (regex, '');
+               return true;
+            }
+         });
+      }
+      return cookie;
    }
 
    // *** ROUTER FUNCTIONS ***
@@ -291,10 +303,23 @@ Please refer to README.md to see what this is about.
    */
 
    cicek.file = function (request, response, paths) {
-      // validate
-      if (paths === undefined) {
-         paths = [''];
-      }
+
+      if (paths === undefined) paths = '';
+      if (teishi.type (paths) === 'string') paths = [paths];
+
+      if (teishi.stop ([{
+         compare: paths,
+         to: 'array',
+         test: teishi.test.type,
+         label: 'paths passed to cicek.file'
+      }, {
+         compare: paths,
+         to: 'string',
+         test: teishi.test.type,
+         multi: 'each',
+         label: 'each path passed to cicek.file'
+      }])) return false;
+
       var file_found = dale.stop_on (paths, true, function (v) {
          if (fs.existsSync (v + request.url)) {
             cicek.head (response, [200, {'Content-Type': mime.lookup (v + request.url)}]);
@@ -323,6 +348,9 @@ Please refer to README.md to see what this is about.
 
       // Remove first and last slash.
       request.url = request.url.replace (/^\//, '').replace (/\/$/, '');
+
+      // If the url is an empty string (because we want the root of the domain), we set it to a single slash ('/').
+      if (request.url === '') request.url = '/';
 
       // Convert request method to lowercase.
       request.method = request.method.toLowerCase ();
@@ -365,9 +393,10 @@ Please refer to README.md to see what this is about.
          // If after testing for wildcards we still haven't found a route, assign the default route to this request.
          current_route === undefined ? current_route = route_object [request.method].default : '';
       }
-
       if (teishi.type (current_route) === 'function') current_route (request, response);
-      else current_route [0].apply (current_route [0], [request, response].concat (current_route [1]));
+      else {
+         current_route [0].apply (current_route [0], [request, response].concat (current_route.slice (1, current_route.length)));
+      }
    }
 
 }).call (this);
