@@ -5,7 +5,7 @@
    "dependencies": {
       "dale": "1.0.6",
       "mime": "1.2.11",
-      "teishi": "1.0.6"
+      "teishi": "1.0.8"
    },
    "main": "cicek.js",
    "author": "Federico Pereiro <fpereiro@gmail.com>",
