@@ -167,7 +167,7 @@ Please refer to README.md to see what this is about.
          compare: route_object,
          multi: 'each',
          test: function (compare, to, label, label_to, label_of) {
-            dale.stop_on (compare, false, function (v) {
+            return dale.stop_on (compare, false, function (v) {
                if (teishi.stop ({
                   compare: v,
                   to: ['function', 'array'],
