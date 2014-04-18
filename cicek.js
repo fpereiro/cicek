@@ -384,7 +384,7 @@ Please refer to README.md to see what this is about.
       if (current_route === undefined) {
          // Test the wildcards.
          dale.stop_on (route_object [request.method], true, function (v, k) {
-            var regex = new RegExp ('^' + k.replace (/\*/g, '.+') + '$');
+            var regex = new RegExp ('^' + k.replace (/\*/g, '.*') + '$');
             if (request.url.match (regex) !== null) {
                current_route = v;
                return true;
