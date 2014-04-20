@@ -1,5 +1,5 @@
 /*
-cicek - v0.1.0
+cicek - v0.2.0
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
