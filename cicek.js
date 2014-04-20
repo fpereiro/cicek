@@ -1,5 +1,5 @@
 /*
-cicek - v0.2.0
+cicek - v0.2.1
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -385,6 +385,7 @@ Please refer to README.md to see what this is about.
       if (current_route === undefined) {
          // Test the wildcards.
          dale.stop_on (routes [request.method], true, function (v, k) {
+            // XXX escape routes with special characters!!
             var regex = new RegExp ('^' + k.replace (/\*/g, '.*') + '$');
             if (request.url.match (regex) !== null) {
                current_route = v;
