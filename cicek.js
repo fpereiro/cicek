@@ -13,6 +13,7 @@ Please refer to README.md to see what this is about.
    var log = console.log;
 
    var fs = require ('fs');
+   var http = require ('http');
 
    // Require the node-mime library.
    var mime = require ('mime');
@@ -126,7 +127,7 @@ Please refer to README.md to see what this is about.
    }
 
    /*
-      route_object is an object containing all the routes for the server.
+      routes is an object containing all the routes for the server.
 
       The keys of the topmost level must be lowercased valid http verbs (get, post, put, etc.).
 
@@ -139,32 +140,32 @@ Please refer to README.md to see what this is about.
       2) An array with two elements, the first being the aforementioned function and the second being an array of arguments which will be concatenated to an array with the request and response and applied to the function.
    */
 
-   cicek.v.route_object = function (route_object) {
+   cicek.v.routes = function (routes) {
       if (teishi.stop ([{
-         compare: route_object,
+         compare: routes,
          to: 'object',
          test: teishi.test.type,
          label: 'cicek route object'
       }, {
-         compare: dale.do (route_object, function (v, k) {return k}),
+         compare: dale.do (routes, function (v, k) {return k}),
          to: cicek.constants.HTTP_verbs,
          multi: 'each_of',
          label: 'cicek route method'
       }, {
-         compare: route_object,
+         compare: routes,
          to: 'object',
          multi: 'each',
          test: teishi.test.type,
          label: 'cicek route method'
       }, {
-         compare: route_object,
+         compare: routes,
          multi: 'each',
          test: function (compare, to, label, label_to, label_of) {
             if (compare.default !== undefined) return true;
             else return ['Each cicek route method', 'must have a default value that is not undefined', 'but instead cicek route method is', compare];
          }
       }, {
-         compare: route_object,
+         compare: routes,
          multi: 'each',
          test: function (compare, to, label, label_to, label_of) {
             return dale.stop_on (compare, false, function (v) {
@@ -336,12 +337,12 @@ Please refer to README.md to see what this is about.
    // *** ROUTER ***
 
    /*
-      cicek.router is the main function. It receives a request, a response and a route_object. If any of these is invalid, the function returns false.
+      cicek.router is the main function. It receives a request, a response and a routes. If any of these is invalid, the function returns false.
    */
-   cicek.router = function (request, response, route_object) {
+   cicek.router = function (request, response, routes) {
 
       // Validation of the inputs.
-      if (cicek.v.request (request) && cicek.v.response (response) && cicek.v.route_object (route_object) !== true) return false;
+      if (cicek.v.request (request) && cicek.v.response (response) && cicek.v.routes (routes) !== true) return false;
 
       // Decode the url.
       request.url = decodeURIComponent (request.url);
@@ -355,9 +356,9 @@ Please refer to README.md to see what this is about.
       // Convert request method to lowercase.
       request.method = request.method.toLowerCase ();
 
-      // If the http verb contained in the request is not in the route_object, return a 405 code and a list of supported methods.
-      if (route_object [request.method] === undefined) {
-         cicek.head (response, [405, {'Allow': dale.do (route_object, function (v, k) {return k}).join (', ')}]);
+      // If the http verb contained in the request is not in the routes, return a 405 code and a list of supported methods.
+      if (routes [request.method] === undefined) {
+         cicek.head (response, [405, {'Allow': dale.do (routes, function (v, k) {return k}).join (', ')}]);
          cicek.end (response);
          return;
       }
@@ -378,12 +379,12 @@ Please refer to README.md to see what this is about.
       }
 
       // Find the current_route.
-      var current_route = route_object [request.method] [request.url];
+      var current_route = routes [request.method] [request.url];
 
       // If the current_route is not found, a) try to find matching wildcards, and failing that, b) assign the current_route to the default key.
       if (current_route === undefined) {
          // Test the wildcards.
-         dale.stop_on (route_object [request.method], true, function (v, k) {
+         dale.stop_on (routes [request.method], true, function (v, k) {
             var regex = new RegExp ('^' + k.replace (/\*/g, '.*') + '$');
             if (request.url.match (regex) !== null) {
                current_route = v;
@@ -391,12 +392,30 @@ Please refer to README.md to see what this is about.
             }
          });
          // If after testing for wildcards we still haven't found a route, assign the default route to this request.
-         current_route === undefined ? current_route = route_object [request.method].default : '';
+         current_route === undefined ? current_route = routes [request.method].default : '';
       }
       if (teishi.type (current_route) === 'function') current_route (request, response);
       else {
          current_route [0].apply (current_route [0], [request, response].concat (current_route.slice (1, current_route.length)));
       }
+   }
+
+   cicek.listen = function (port, routes) {
+      if (teishi.stop ({
+         compare: port,
+         to: 'number',
+         test: teishi.test.type,
+         label: 'Port passed to cicek.listen'
+      })) return false;
+
+      if (cicek.v.routes (routes) === false) return false;
+
+      http.createServer (function (request, response) {
+         cicek.router (request, response, routes);
+      }).listen (port);
+
+      // I couldn't resist doing this.
+      log ('\033[1m\033[3' + Math.round ((Math.random () * 7)) + 'm' + 'Çiçek running in port', port + '!\033[0m');
    }
 
 }).call (this);
