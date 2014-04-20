@@ -14,4 +14,4 @@ The complete source code is contained in `cicek.js`. It is about 420 lines long.
 
 ## License
 
-aStack is written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
+cicek is written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
