@@ -1,11 +1,12 @@
 {
    "name": "cicek",
-   "version": "0.2.1",
+   "version": "0.3.0",
    "description": "HTTP server.",
    "dependencies": {
-      "dale": "1.0.6",
+      "dale": "1.0.7",
+      "formidable": "1.0.14",
       "mime": "1.2.11",
-      "teishi": "1.0.8"
+      "teishi": "1.0.11"
    },
    "main": "cicek.js",
    "author": "Federico Pereiro <fpereiro@gmail.com>",
