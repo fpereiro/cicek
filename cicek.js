@@ -1,5 +1,5 @@
 /*
-çiçek - v0.3.0
+çiçek - v0.3.1
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -380,7 +380,7 @@ Please refer to README.md to see what this is about.
 
    cicek.wFile = function (request, response, options, callback) {
       if ((cicek.v.request (request) && cicek.v.response (response)) !== true) return false;
-      if (teishi.stop ({
+      if (teishi.stop ([{
          compare: callback,
          to: 'function',
          test: teishi.test.type,
@@ -391,12 +391,11 @@ Please refer to README.md to see what this is about.
          test: teishi.test.type,
          multi: 'one_of',
          label: 'Options argument passed to çiçek.wFile'
-
-      })) return cicek.end (response, 500);
+      }])) return cicek.end (response, 500);
       if (options !== undefined) {
          if (teishi.stop ([{
-            compare: options,
-            to: ['encoding', 'uploadDir', 'keepExtensions', 'type', 'maxFieldsSize', 'maxFields', 'form', 'multiples'],
+            compare: dale.do (options, function (v, k) {return k}),
+            to: ['encoding', 'uploadDir', 'keepExtensions', 'type', 'maxFieldsSize', 'maxFields', 'hash', 'multiples'],
             multi: 'each_of',
             label: 'Keys of options argument passed to çiçek.wFile'
          }, {
@@ -440,7 +439,7 @@ Please refer to README.md to see what this is about.
             multi: 'one_of',
             label: 'options.path passed to çiçek.wFile'
          }, {
-            compare: options.maxFields,
+            compare: options.multiples,
             to: ['boolean', 'undefined'],
             test: teishi.test.type,
             multi: 'one_of',
@@ -455,7 +454,9 @@ Please refer to README.md to see what this is about.
          form [k] = v;
       });
 
-      form.parse (request, callback);
+      form.parse (request, function (error, fields, files) {
+         callback (response, error, fields, files);
+      });
    }
 
    // *** ROUTER ***

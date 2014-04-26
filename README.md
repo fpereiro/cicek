@@ -30,7 +30,7 @@ cicek.listen (8000, {
       upload: [cicek.wFile, {
          uploadDir: '/home/ubuntu/files',
          hash: 'md5'
-       }, function (error, fields, files) {
+       }, function (response, error, fields, files) {
             console.log ('Uploaded', files ['files[]'].path);
        }],
       default: [cicek.rJSON, function (response, JSON) {
