@@ -31,8 +31,8 @@ cicek.listen (8000, {
        }, function (response, error, fields, files) {
             console.log ('Uploaded', files ['files[]'].path);
        }],
-      default: [cicek.rJSON, function (response, JSON) {
-         cicek.end (response, 200, 'You just posted: ' + JSON.stringify (JSON));
+      default: [cicek.rJSON, function (response, json) {
+         cicek.end (response, 200, 'You just posted: ' + JSON.stringify (json));
       }]
    }
 });
