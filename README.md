@@ -2,8 +2,6 @@
 
 > "The conventional approach, enforced to a greater or lesser extent, is that you shall use a standard subroutine. I say that you should write your own subroutines." -- Chuck Moore
 
-**Warning: this readme is extremely crude. Right now, it's written for the purposes of letting me understanding the library while i develop it. Please don't try too hard reading this because it won't be worth it.**
-
 çiçek is a web server. It was written with the following purposes:
 
 1. To have validation and error checking everywhere (from routes to request headers).
@@ -16,15 +14,6 @@
    * [teishi](https://github.com/fpereiro/teishi), for validation.
 
 ## Example usage
-
-The code below does the following:
-
-- Create a HTTP server listening on 8000.
-- If the server receives a GET request with a path of the form `lib/*.js`, it serves the corresponding js file.
-- If the server receives a GET request with a path of the form `images/*`, it serves the corresponding image.
-- If the server receives a GET with any other path than those matching the above patterns, it returns a hello world page.
-- If the server receives a POST request to the path `upload`, and the POST request contains files, it writes those files to the folder `/home/ubuntu/files`.
-- If the server receives a POST request that has any other path, it tries to parse it as a JSON. If it is a valid JSON, the server will echo it. If it is not a valid JSON, the server will respond with a 400 error code and an error message.
 
 ```javascript
 var cicek = require ('cicek');
@@ -48,6 +37,15 @@ cicek.listen (8000, {
    }
 });
 ```
+
+The code above does the following:
+
+- Create a HTTP server listening on port 8000.
+- If the server receives a GET request with a path of the form `lib/*.js`, it serves the corresponding js file.
+- If the server receives a GET request with a path of the form `images/*`, it serves the corresponding image.
+- If the server receives a GET with any other path than those matching the above patterns, it returns a hello world page.
+- If the server receives a POST request to the path `upload`, and the POST request contains files, it writes those files to the folder `/home/ubuntu/files`.
+- If the server receives a POST request that has any other path, it tries to parse it as a JSON. If it is a valid JSON, the server will echo it. If it is not a valid JSON, the server will respond with a 400 error code and an error message.
 
 ## Installation
 
