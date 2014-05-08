@@ -125,7 +125,7 @@ For example, if the request cookie is `'key1=value1;key2=value2'`, and you invok
 
 ## `cicek.listen`
 
-This function is the one you invoke to start using çiçek. It takes two arguments: a port number (which can be any number)  and a `route object`. If either is invalid, the function returns false.
+This function is the one you invoke to start using çiçek. It takes two arguments: a port number (an integer between 1 and 65535)  and a `route object`. If either is invalid, the function returns false.
 
 If the inputs were valid, `cicek.listen` will start a node HTTP server. This server will only invoke `cicek.router` every time it receives a request, passing it the request, the response and the `route object`.
 

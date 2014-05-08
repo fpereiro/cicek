@@ -538,8 +538,8 @@ Please refer to README.md to see what this is about.
          label: 'Port passed to çiçek.listen'
       })) return false;
 
-      if (port < 1 || port > 65535) {
-         console.log ('Port must be in the range 1-65535');
+      if (port < 1 || port > 65535 || (! teishi.is_integer (port))) {
+         console.log ('Port must be an integer in the range 1-65535');
          return false;
       }
 
