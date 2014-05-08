@@ -1,5 +1,5 @@
 /*
-çiçek - v0.3.1
+çiçek - v0.3.2
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -248,7 +248,7 @@ Please refer to README.md to see what this is about.
       if (teishi.type (head) === 'number') response.writeHead (head);
       else                                 response.writeHead (head [0], head [1]);
 
-      if (verbose) {
+      if (verbose === true) {
          var c = {1: 6, 2: 2, 3: 4, 4: 3, 5: 1};
          var f = function (h) {return '\033[3' + c [(h + '').substr (0, 1)] + 'm' + h + '\033[0m'}
          log ('çiçek wrote head with status code', isNaN (head) ? f (head [0]) : f (head), '(' + cicek.find_HTTP_status_code_description (isNaN (head) ? head [0] : head) + ')', isNaN (head) ? 'and headers ' + teishi.s (head [1]) : '');
@@ -260,6 +260,7 @@ Please refer to README.md to see what this is about.
       if (cicek.v.response (response) === false) return false;
       if (body === undefined) body = '';
       if (teishi.type (body) !== 'string') body = teishi.s (body);
+      if (body === false) body = body + '';
       response.write (body);
    }
 
@@ -305,8 +306,12 @@ Please refer to README.md to see what this is about.
 
    // çiçek.wHTML (short for "write HTML") receives a response and a string with HTML. If both are valid, it writes the HTML into the response with the proper header, otherwise returns false.
    cicek.wHTML = function (request, response, HTML) {
-      if (cicek.v.response (response) && (teishi.type (HTML) === 'string') !== true) return false;
-      cicek.end (response, [200, {'Content-Type': 'text/html'}], HTML);
+      // We don't validate the request since we don't use it! We place it as a parameter just because we want to invoke çiçek.wJSON directly from a çiçek route, and the router always passes request and response.
+      if (cicek.v.response (response) === false) return false;
+      if (teishi.type (HTML) !== 'string') {
+         cicek.end (response, [500, 'Server tried to serve invalid HTML string.']);
+      }
+      else cicek.end (response, [200, {'Content-Type': 'text/html'}], HTML);
    }
 
    /*
@@ -345,7 +350,7 @@ Please refer to README.md to see what this is about.
    }
 
    /*
-      XXX explain paths, file not found
+      This function validates its inputs. The paths arguments can be either a string or an array of strings, each of which is a path. The function then attempts to find request.path in each of the folders specified by the paths argument. When the first file is found, that file is served, hence the order of the paths may be important. Each file is served with its appropriate mime type, thanks to the mime library. If every path is tried and the file is not found, a 404 code is sent.
    */
 
    cicek.rFile = function (request, response, paths) {
@@ -377,6 +382,8 @@ Please refer to README.md to see what this is about.
          cicek.end (response, 404);
       }
    }
+
+   // This function is a wrapper around formidable. It validates inputs and if they are valid it passes them to formidable.
 
    cicek.wFile = function (request, response, options, callback) {
       if ((cicek.v.request (request) && cicek.v.response (response)) !== true) return false;
@@ -530,6 +537,11 @@ Please refer to README.md to see what this is about.
          test: teishi.test.type,
          label: 'Port passed to çiçek.listen'
       })) return false;
+
+      if (port < 1 || port > 65535) {
+         console.log ('Port must be in the range 1-65535');
+         return false;
+      }
 
       if (cicek.v.routes (routes) === false) return false;
 
