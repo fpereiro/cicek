@@ -1,5 +1,5 @@
 /*
-çiçek - v0.3.2
+çiçek - v1.0.0
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -228,7 +228,7 @@ Please refer to README.md to see what this is about.
       return string.replace (/[\-\[\]\/\{\}\(\)\+\?\.\\\^\$\|]/g, "\\$&");
    }
 
-   // We don't validate because this function is called only from cicek.head and only after the status code in the head is validated.
+   // We don't validate the input here because this function is called only from cicek.head and only after the status code in the head is validated.
    cicek.find_HTTP_status_code_description = function (HTTP_status_code) {
       var description;
       dale.stop_on (cicek.constants.HTTP_status_codes, true, function (v) {
@@ -240,7 +240,6 @@ Please refer to README.md to see what this is about.
       return description;
    }
 
-   // çiçek.head is the function used for writing the head of a response. It validates the response and head, and then writes the head to the response. If any input is invalid, it returns false without writing the head.
    cicek.head = function (response, head, verbose) {
       if (cicek.v.response (response) === false) return false;
       if (cicek.v.head (head) === false) return false;
@@ -255,7 +254,6 @@ Please refer to README.md to see what this is about.
       }
    }
 
-   // çiçek.body receives a response and a body. It validates the response it receives. If the body is undefined, it is set to an empty string. If it's not a string, it is stringified. After this, it is
    cicek.body = function (response, body) {
       if (cicek.v.response (response) === false) return false;
       if (body === undefined) body = '';
@@ -264,7 +262,6 @@ Please refer to README.md to see what this is about.
       response.write (body);
    }
 
-   // çiçek.end is the function used for ending a response. It takes a head and a body, passes the first to çiçek.head and the second to çiçek.body.
    cicek.end = function (response, head, body, verbose) {
       if (cicek.head (response, head, verbose) === false || cicek.body (response, body) === false) {
          return false;
@@ -292,32 +289,21 @@ Please refer to README.md to see what this is about.
 
    // *** ROUTE FUNCTIONS ***
 
-   // çiçek.wJSON (short for "write JSON") receives a response and a JSON. If both are valid, it writes the JSON into the response with the proper header, otherwise returns false.
-   cicek.wJSON = function (request, response, JSON) {
-      // We don't validate the request since we don't use it! We place it as a parameter just because we want to invoke çiçek.wJSON directly from a çiçek route, and the router always passes request and response.
-      if (cicek.v.response (response) === false) return false;
-      if (teishi.s (JSON) === false) {
-         cicek.end (response, 500, 'Server generated invalid JSON.');
-      }
-      else {
-         cicek.end (response, [200, {'Content-Type': 'application/json'}], JSON);
-      }
-   }
+   // These functions always receive a request and a response as first and second argument, and they are usually invoked in routes.
+   // For more information on how they work, please refer to the README.
 
-   // çiçek.wHTML (short for "write HTML") receives a response and a string with HTML. If both are valid, it writes the HTML into the response with the proper header, otherwise returns false.
-   cicek.wHTML = function (request, response, HTML) {
-      // We don't validate the request since we don't use it! We place it as a parameter just because we want to invoke çiçek.wJSON directly from a çiçek route, and the router always passes request and response.
+   // Send HTML
+   cicek.sHTML = function (request, response, HTML) {
+      // We don't validate the request since we don't use it! We place it as a parameter just because we want to invoke çiçek.sHTML directly from a çiçek route, and the router always passes request and response.
       if (cicek.v.response (response) === false) return false;
       if (teishi.type (HTML) !== 'string') {
-         cicek.end (response, [500, 'Server tried to serve invalid HTML string.']);
+         cicek.end (response, 500, 'Server tried to serve invalid HTML string.');
       }
       else cicek.end (response, [200, {'Content-Type': 'text/html'}], HTML);
    }
 
-   /*
-       çiçek.parse receives a request, a response and a callback. It gathers the data chunks into a string and then calls the callback, passing it the response and the string with the data.
-   */
-   cicek.parse = function (request, response, callback) {
+   // Receive data
+   cicek.receive = function (request, response, callback) {
       if (cicek.v.request (request) && cicek.v.response (response) && (teishi.type (callback) === 'function') !== true) return false;
       var data = '';
       request.on ('data', function (incoming_data) {
@@ -326,20 +312,15 @@ Please refer to README.md to see what this is about.
       request.on ('end', function () {
          callback (response, data);
       });
+      request.on ('error', function () {
+         cicek.end (response, 400, 'There was an error when receiving data from the request.');
+      });
    }
 
-   /*
-      çiçek.rJSON (short for "read JSON") is a function that receives a request, a response, and a callback. It invokes çiçek.parse and expects a JSON within the requst.
-
-      If the parse is unsuccessful, it sends a 400 code, together with the error "Expecting JSON, but instead received" + contents of the body.
-      If the parse is successful, it passes the response and the parsed JSON to the callback.
-
-      This is the function that you want to use if you're expecting a JSON from a post request.
-   */
-
+   // Receive JSON
    cicek.rJSON = function (request, response, callback) {
       if ((cicek.v.request (request) && cicek.v.response (response) && (teishi.type (callback) === 'function')) !== true) return false;
-      cicek.parse (request, response, function (response, string) {
+      cicek.receive (request, response, function (response, string) {
          if (teishi.p (string) === false) {
             cicek.end (response, 400, 'Expecting JSON, but instead received ' + string);
          }
@@ -349,11 +330,20 @@ Please refer to README.md to see what this is about.
       });
    }
 
-   /*
-      This function validates its inputs. The paths arguments can be either a string or an array of strings, each of which is a path. The function then attempts to find request.path in each of the folders specified by the paths argument. When the first file is found, that file is served, hence the order of the paths may be important. Each file is served with its appropriate mime type, thanks to the mime library. If every path is tried and the file is not found, a 404 code is sent.
-   */
+   // Send JSON
+   cicek.sJSON = function (request, response, JSON) {
+      // We don't validate the request since we don't use it! We place it as a parameter just because we want to invoke çiçek.sJSON directly from a çiçek route, and the router always passes request and response.
+      if (cicek.v.response (response) === false) return false;
+      if (teishi.s (JSON) === false) {
+         cicek.end (response, 500, 'Server generated invalid JSON.');
+      }
+      else {
+         cicek.end (response, [200, {'Content-Type': 'application/json'}], JSON);
+      }
+   }
 
-   cicek.rFile = function (request, response, paths) {
+   // Send file
+   cicek.sFile = function (request, response, paths) {
 
       if (paths === undefined) paths = '';
       if (teishi.type (paths) === 'string') paths = [paths];
@@ -383,75 +373,79 @@ Please refer to README.md to see what this is about.
       }
    }
 
-   // This function is a wrapper around formidable. It validates inputs and if they are valid it passes them to formidable.
-
-   cicek.wFile = function (request, response, options, callback) {
+   // Write file
+   cicek.rFile = function (request, response, options, callback) {
       if ((cicek.v.request (request) && cicek.v.response (response)) !== true) return false;
       if (teishi.stop ([{
          compare: callback,
          to: 'function',
          test: teishi.test.type,
-         label: 'Callback argument passed to çiçek.wFile'
+         label: 'Callback argument passed to çiçek.rFile'
       }, {
          compare: options,
          to: ['object', 'undefined'],
          test: teishi.test.type,
          multi: 'one_of',
-         label: 'Options argument passed to çiçek.wFile'
+         label: 'Options argument passed to çiçek.rFile'
       }])) return cicek.end (response, 500);
       if (options !== undefined) {
          if (teishi.stop ([{
             compare: dale.do (options, function (v, k) {return k}),
             to: ['encoding', 'uploadDir', 'keepExtensions', 'type', 'maxFieldsSize', 'maxFields', 'hash', 'multiples'],
             multi: 'each_of',
-            label: 'Keys of options argument passed to çiçek.wFile'
+            label: 'Keys of options argument passed to çiçek.rFile'
          }, {
             compare: options.encoding,
             to: ['string', 'undefined'],
             test: teishi.test.type,
             multi: 'one_of',
-            label: 'options.encoding passed to çiçek.wFile'
+            label: 'options.encoding passed to çiçek.rFile'
          }, {
             compare: options.uploadDir,
             to: ['string', 'undefined'],
             test: teishi.test.type,
             multi: 'one_of',
-            label: 'options.uploadDir passed to çiçek.wFile'
+            label: 'options.uploadDir passed to çiçek.rFile'
          }, {
             compare: options.keepExtensions,
             to: ['boolean', 'undefined'],
             test: teishi.test.type,
             multi: 'one_of',
-            label: 'options.keepExtensions passed to çiçek.wFile'
+            label: 'options.keepExtensions passed to çiçek.rFile'
          }, {
             compare: options.type,
             to: [undefined, 'multipart', 'urlencoded'],
             multi: 'one_of',
-            label: 'options.type passed to çiçek.wFile'
+            label: 'options.type passed to çiçek.rFile'
          }, {
             compare: options.maxFieldsSize,
             to: ['number', 'undefined'],
             test: teishi.test.type,
             multi: 'one_of',
-            label: 'options.maxFieldsSize passed to çiçek.wFile'
+            label: 'options.maxFieldsSize passed to çiçek.rFile'
          }, {
             compare: options.maxFields,
             to: ['number', 'undefined'],
             test: teishi.test.type,
             multi: 'one_of',
-            label: 'options.maxFieldsSize passed to çiçek.wFile'
+            label: 'options.maxFieldsSize passed to çiçek.rFile'
          }, {
             compare: options.hash,
             to: [undefined, 'sha1', 'md5'],
             multi: 'one_of',
-            label: 'options.path passed to çiçek.wFile'
+            label: 'options.path passed to çiçek.rFile'
          }, {
             compare: options.multiples,
             to: ['boolean', 'undefined'],
             test: teishi.test.type,
             multi: 'one_of',
-            label: 'options.maxFieldsSize passed to çiçek.wFile'
+            label: 'options.maxFieldsSize passed to çiçek.rFile'
          }])) return cicek.end (response, 500);
+      }
+
+      if (options.uploadDir && (fs.existsSync (options.uploadDir) === false)) {
+         log ('options.uploadDir (', options.uploadDir, ') does not exist!');
+         return cicek.end (response, 500);
       }
 
       var form = new formidable.IncomingForm ();
@@ -468,9 +462,6 @@ Please refer to README.md to see what this is about.
 
    // *** ROUTER ***
 
-   /*
-      çiçek.router is the main function. It receives a request, a response and a routes. If any of these is invalid, the function returns false.
-   */
    cicek.router = function (request, response, routes) {
 
       // Validation of the inputs.

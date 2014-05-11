@@ -1,6 +1,6 @@
 {
    "name": "cicek",
-   "version": "0.3.2",
+   "version": "1.0.0",
    "description": "HTTP server.",
    "dependencies": {
       "dale": "1.0.7",
