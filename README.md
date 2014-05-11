@@ -76,7 +76,7 @@ A `route object` is an object that must follow these rules:
 A `route function` is a function that:
 
 - Receives a `request` and a `response` as first and second argument, always.
-- Can receive further arguments if the route that invoked it was an array with more than one argument. Example: in `default: [cicek.wHTML, '<html><h1>Hello world!</h1></html>']`, cicek.wHTML is executed with the `request` as first argument, the `response` as the second argument, and the HTML string as the third.
+- Can receive further arguments if the route that invoked it was an array with more than one argument. Example: in `default: [cicek.sHTML, '<html><h1>Hello world!</h1></html>']`, `cicek.sHTML` is executed with the `request` as first argument, the `response` as the second argument, and the HTML string as the third.
 - Must serve the `response`.
 
 çiçek provides you with six `route functions`. Remember that each of these receive a `request` and a `response`, and then further optional arguments. In each of them, if the `request` or `response` are invalid, the function will return `false`.
