@@ -1,5 +1,5 @@
 /*
-çiçek - v1.0.1
+çiçek - v1.0.2
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -80,11 +80,11 @@ Please refer to README.md to see what this is about.
       [505, 'HTTP Version Not Supported'],
    ];
 
-   // http://en.wikipedia.org/wiki/List_of_HTTP_header_fields
-   cicek.constants.HTTP_request_headers = ['accept', 'accept-charset', 'accept-encoding', 'accept-language', 'accept-datetime', 'authorization', 'cache-control', 'connection', 'cookie', 'content-length', 'content-md5', 'content-type', 'date', 'expect', 'from', 'host', 'if-match', 'if-modified-since', 'if-none-match', 'if-range', 'if-unmodified-since', 'max-forwards', 'origin', 'pragma', 'proxy-authorization', 'range', 'referer', 'te', 'user-agent', 'via', 'warning', 'x-requested-with', 'dnt', 'x-forwarded-for', 'x-forwarded-for:', 'x-forwarded-proto', 'front-end-https', 'x-att-deviceid', 'x-wap-profile', 'proxy-connection'];
+   // http://en.wikipedia.org/wiki/List_of_HTTP_header_fields, also added two headers to receive github hooks; dirty but useful
+   cicek.constants.HTTP_request_headers = ['accept', 'accept-charset', 'accept-encoding', 'accept-language', 'accept-datetime', 'authorization', 'cache-control', 'connection', 'cookie', 'content-length', 'content-md5', 'content-type', 'date', 'expect', 'from', 'host', 'if-match', 'if-modified-since', 'if-none-match', 'if-range', 'if-unmodified-since', 'max-forwards', 'origin', 'pragma', 'proxy-authorization', 'range', 'referer', 'te', 'user-agent', 'via', 'warning', 'x-requested-with', 'dnt', 'x-forwarded-for', 'x-forwarded-for:', 'x-forwarded-proto', 'front-end-https', 'x-att-deviceid', 'x-wap-profile', 'proxy-connection', 'x-github-event', 'x-github-delivery'];
 
-   // http://en.wikipedia.org/wiki/List_of_HTTP_header_fields, also added 'x-github-event' to receive github hooks; dirty but useful
-   cicek.constants.HTTP_response_headers = ['access-control-allow-origin', 'accept-ranges', 'age', 'allow', 'cache-control', 'connection', 'content-encoding', 'content-language', 'content-length', 'content-location', 'content-md5', 'content-disposition', 'content-range', 'content-type', 'date', 'etag', 'expires', 'last-modified', 'link', 'location', 'p3p', 'pragma', 'proxy-authenticate', 'refresh', 'retry-after', 'server', 'set-cookie', 'status', 'strict-transport-security', 'trailer', 'transfer-encoding', 'upgrade', 'vary', 'via', 'warning', 'www-authenticate', 'x-frame-options', 'x-xss-protection', 'content-security-policy,', 'x-content-security-policy', 'x-webkit-csp', 'x-content-type-options', 'x-powered-by', 'x-ua-compatible', 'x-github-event'];
+   // http://en.wikipedia.org/wiki/List_of_HTTP_header_fields
+   cicek.constants.HTTP_response_headers = ['access-control-allow-origin', 'accept-ranges', 'age', 'allow', 'cache-control', 'connection', 'content-encoding', 'content-language', 'content-length', 'content-location', 'content-md5', 'content-disposition', 'content-range', 'content-type', 'date', 'etag', 'expires', 'last-modified', 'link', 'location', 'p3p', 'pragma', 'proxy-authenticate', 'refresh', 'retry-after', 'server', 'set-cookie', 'status', 'strict-transport-security', 'trailer', 'transfer-encoding', 'upgrade', 'vary', 'via', 'warning', 'www-authenticate', 'x-frame-options', 'x-xss-protection', 'content-security-policy,', 'x-content-security-policy', 'x-webkit-csp', 'x-content-type-options', 'x-powered-by', 'x-ua-compatible'];
 
    // *** VALIDATION ***
 
