@@ -206,7 +206,7 @@ You don't need to know how the router works, but let's see what it does anyhow:
 
 ## Source code
 
-The complete source code is contained in `cicek.js`. It is about 550 lines long.
+The complete source code is contained in `cicek.js`. It is about 510 lines long.
 
 ## License
 
