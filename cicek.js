@@ -494,12 +494,14 @@ Please refer to README.md to see what this is about.
 
       if (cicek.v.routes (routes) === false) return false;
 
-      http.createServer (function (request, response) {
+      var server = http.createServer (function (request, response) {
          cicek.router (request, response, routes);
       }).listen (port);
 
       // I couldn't resist doing this.
       log ('\033[1m\033[3' + Math.round ((Math.random () * 7)) + 'm' + 'Çiçek listening in port', port + '!\033[0m');
+
+      return server;
    }
 
 }).call (this);
