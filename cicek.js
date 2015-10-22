@@ -1,507 +1,631 @@
 /*
-çiçek - v1.0.3
+çiçek - v2.0.0
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
-Please refer to README.md to see what this is about.
+Please refer to readme.md to read the annotated source.
 */
 
 (function () {
 
    // *** SETUP ***
 
-   // Useful shorthand.
-   var log = console.log;
+   var crypto = require ('crypto');
+   var fs     = require ('fs');
+   var http   = require ('http');
+   var https  = require ('https');
+   var os     = require ('os');
+   var path   = require ('path');
+   var query  = require ('querystring');
+   var zlib   = require ('zlib');
 
-   // Require native dependencies.
-   var fs = require ('fs');
-   var http = require ('http');
-
-   // Require the node-mime library.
-   var mime = require ('mime');
-
-   // Require formidable.
-   var formidable = require ('formidable');
-
-   // Require dale and teishi.
-   var dale = require ('dale');
+   var Busboy = require ('busboy');
+   var mime   = require ('mime');
+   var dale   = require ('dale');
    var teishi = require ('teishi');
 
    var cicek = exports;
 
-   // *** CONSTANTS ***
+   var log = teishi.l;
 
-   cicek.constants = {};
+   // *** HTTP CONSTANTS ***
 
-   // Taken from http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html
-   cicek.constants.HTTP_verbs = ['get', 'head', 'post', 'put', 'delete', 'trace', 'connect'];
-
-   cicek.constants.HTTP_status_codes = dale.do (http.STATUS_CODES, function (v, k) {return [parseInt (k), v]});
-
-   // http://en.wikipedia.org/wiki/List_of_HTTP_header_fields, also added two headers to receive github hooks; dirty but useful
-   cicek.constants.HTTP_request_headers = ['accept', 'accept-charset', 'accept-encoding', 'accept-language', 'accept-datetime', 'authorization', 'cache-control', 'connection', 'cookie', 'content-length', 'content-md5', 'content-type', 'date', 'expect', 'from', 'host', 'if-match', 'if-modified-since', 'if-none-match', 'if-range', 'if-unmodified-since', 'max-forwards', 'origin', 'pragma', 'proxy-authorization', 'range', 'referer', 'te', 'user-agent', 'via', 'warning', 'x-requested-with', 'dnt', 'x-forwarded-for', 'x-forwarded-for:', 'x-forwarded-proto', 'front-end-https', 'x-att-deviceid', 'x-wap-profile', 'proxy-connection', 'x-github-event', 'x-github-delivery'];
-
-   // http://en.wikipedia.org/wiki/List_of_HTTP_header_fields
-   cicek.constants.HTTP_response_headers = ['access-control-allow-origin', 'accept-ranges', 'age', 'allow', 'cache-control', 'connection', 'content-encoding', 'content-language', 'content-length', 'content-location', 'content-md5', 'content-disposition', 'content-range', 'content-type', 'date', 'etag', 'expires', 'last-modified', 'link', 'location', 'p3p', 'pragma', 'proxy-authenticate', 'refresh', 'retry-after', 'server', 'set-cookie', 'status', 'strict-transport-security', 'trailer', 'transfer-encoding', 'upgrade', 'vary', 'via', 'warning', 'www-authenticate', 'x-frame-options', 'x-xss-protection', 'content-security-policy,', 'x-content-security-policy', 'x-webkit-csp', 'x-content-type-options', 'x-powered-by', 'x-ua-compatible'];
-
-   // *** VALIDATION ***
-
-   cicek.v = {};
-
-   // A çiçek head is either a single number (an http status code) or an array with two elements. If it is an array, the first element is the status code. The second element is an object with response headers.
-   cicek.v.head = function (head) {
-      if (teishi.stop ({
-         compare: head,
-         to: ['number', 'array'],
-         test: teishi.test.type,
-         multi: 'one_of',
-         label: 'çiçek head'
-      })) return false;
-
-      if (teishi.type (head) === 'number') {
-         return (! teishi.stop ({
-            compare: head,
-            to: dale.do (cicek.constants.HTTP_status_codes, function (v) {return v [0]}),
-            multi: 'one_of',
-            label: 'çiçek head HTTP status code'
-         }));
-      }
-
-      return (! teishi.stop ([{
-         compare: head.length,
-         to: 2,
-         label: 'çiçek head'
-      }, {
-         compare: head [0],
-         to: dale.do (cicek.constants.HTTP_status_codes, function (v) {return v [0]}),
-         multi: 'one_of',
-         label: 'çiçek head HTTP status code'
-      }, {
-         compare: head [1],
-         to: 'object',
-         test: teishi.test.type,
-         label: 'çiçek head response headers'
-      }, {
-         compare: dale.do (head [1], function (v, k) {return k.toLowerCase ()}),
-         to: cicek.constants.HTTP_response_headers,
-         multi: 'each_of',
-         label: 'HTTP response headers'
-      }]));
-   }
-
-   /*
-      routes is an object containing all the routes for the server.
-
-      The keys of the topmost level must be lowercased valid http verbs (get, post, put, etc.).
-
-      Each specified http verb contains an object.
-
-      That object should always contain a 'default' key.
-
-      Every key within those objects point either to
-      1) A function which receives the request and the response.
-      2) An array with two elements, the first being the aforementioned function and the second being an array of arguments which will be concatenated to an array with the request and response and applied to the function.
-   */
-
-   cicek.v.routes = function (routes) {
-      if (teishi.stop ([{
-         compare: routes,
-         to: 'object',
-         test: teishi.test.type,
-         label: 'çiçek route object'
-      }, {
-         compare: dale.do (routes, function (v, k) {return k}),
-         to: cicek.constants.HTTP_verbs,
-         multi: 'each_of',
-         label: 'çiçek route method'
-      }, {
-         compare: routes,
-         to: 'object',
-         multi: 'each',
-         test: teishi.test.type,
-         label: 'çiçek route method'
-      }, {
-         compare: routes,
-         multi: 'each',
-         test: function (compare, to, label, label_to, label_of) {
-            if (compare.default !== undefined) return true;
-            else return ['Each çiçek route method', 'must have a default value that is not undefined', 'but instead çiçek route method is', compare];
-         }
-      }, {
-         compare: routes,
-         multi: 'each',
-         test: function (compare, to, label, label_to, label_of) {
-            return dale.stop_on (compare, false, function (v) {
-               if (teishi.stop ({
-                  compare: v,
-                  to: ['function', 'array'],
-                  test: teishi.test.type,
-                  multi: 'one_of',
-                  label: 'çiçek route function'
-               })) return false;
-               if (teishi.type (v) === 'array') {
-                  if (teishi.stop ([{
-                     compare: v [0],
-                     to: 'function',
-                     test: teishi.test.type,
-                     label: 'çiçek route function'
-                  }, {
-                     compare: v [1] === undefined,
-                     to: false,
-                     label: 'çiçek route argument must not be undefined'
-                  }])) return false;
-               }
-               return true;
-            });
-         }
-      }])) return false;
-      return true;
-   }
-
-   // A request is always a readable stream that is not writable.
-   cicek.v.request = function (request) {
-      if (request.readable === true && request.writable === undefined) return true;
-      else {
-         log ('Request must be a readable (and not writable) stream.');
-         return false;
-      }
-   }
-
-   // A request is always a readable and writable stream.
-   cicek.v.response = function (response) {
-      if (response.connection && response.connection.readable && response.connection.writable) return true;
-      else {
-         log ('Response must be a readable and writable stream.');
-         return false;
-      }
+   cicek.http = {
+      methods: ['get', 'head', 'post', 'put', 'delete', 'trace', 'connect'],
+      codes:  dale.do (http.STATUS_CODES, function (v, k) {return parseInt (k)}),
+      requestHeaders: new RegExp ('^(' + ['accept', 'accept-charset', 'accept-encoding', 'accept-language', 'accept-datetime', 'authorization', 'cache-control', 'connection', 'cookie', 'content-length', 'content-md5', 'content-type', 'date', 'expect', 'from', 'host', 'https', 'if-match', 'if-modified-since', 'if-none-match', 'if-range', 'if-unmodified-since', 'max-forwards', 'origin', 'pragma', 'proxy-authorization', 'range', 'referer', 'te', 'user-agent', 'upgrade', 'via', 'warning', 'dnt', 'front-end-https', 'upgrade-insecure-requests', 'x-.+'].join ('|') + ')$', 'i'),
+      responseHeaders: new RegExp ('^(' + ['access-control-allow-origin', 'accept-ranges', 'age', 'allow', 'cache-control', 'connection', 'content-encoding', 'content-language', 'content-length', 'content-location', 'content-md5', 'content-disposition', 'content-range', 'content-type', 'date', 'etag', 'expires', 'last-modified', 'link', 'location', 'p3p', 'pragma', 'proxy-authenticate', 'refresh', 'retry-after', 'server', 'set-cookie', 'status', 'strict-transport-security', 'trailer', 'transfer-encoding', 'upgrade', 'vary', 'via', 'warning', 'www-authenticate', 'public-key-pins', 'content-security-policy', 'x-.+'].join ('|') + ')$', 'i')
    }
 
    // *** HELPER FUNCTIONS ***
 
-   // Taken from http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
-   // This function escapes a string so that it can be used in the body of a regex. We'll use this both in çiçek.rCookie and in çiçek.router to match wildcards.
-   // Notice that this function won't escape the '*' sign, since we want to support wildcards.
-   cicek.escapeRegex = function (string) {
-      if (teishi.type (string) !== 'string') return false;
-      return string.replace (/[\-\[\]\/\{\}\(\)\+\?\.\\\^\$\|]/g, "\\$&");
-   }
-
-   // We don't validate the input here because this function is called only from cicek.head and only after the status code in the head is validated.
-   cicek.find_HTTP_status_code_description = function (HTTP_status_code) {
-      var description;
-      dale.stop_on (cicek.constants.HTTP_status_codes, true, function (v) {
-         if (v [0] === HTTP_status_code) {
-            description = v [1];
-            return true;
-         }
+   cicek.escapeString = function (string, dontEscape) {
+      if (teishi.stop ('çiçek.escapeString', [
+         ['string', string, 'string'],
+         ['dontEscape', dontEscape, ['array', 'undefined'], 'oneOf'],
+         [dontEscape !== undefined, ['dontEscape character', dontEscape, 'string', 'each']]
+      ])) return false;
+      var toEscape = ['-', '[', ']', '{', '}', '(', ')', '|', '+', '*', '?', '.', '/', '\\', '^', '$'];
+      dale.do (dontEscape, function (v) {
+         toEscape.splice (toEscape.indexOf (v), 1);
       });
-      return description;
+      return string.replace (new RegExp ('[' + toEscape.join ('\\') + ']', 'g'), '\\$&');
    }
 
-   cicek.head = function (response, head, verbose) {
-      if (cicek.v.response (response) === false) return false;
-      if (cicek.v.head (head) === false) return false;
+   cicek.etag = function (stringOrBuffer, weak) {
+      var hash = crypto.createHash ('sha1');
+      hash.update (stringOrBuffer);
+      return (weak ? 'W/' : '') + '"' + hash.digest ('base64') + '"';
+   }
 
-      if (teishi.type (head) === 'number') response.writeHead (head);
-      else                                 response.writeHead (head [0], head [1]);
+   // *** COOKIE ***
 
-      if (verbose === true) {
-         var c = {1: 6, 2: 2, 3: 4, 4: 3, 5: 1};
-         var f = function (h) {return '\033[3' + c [(h + '').substr (0, 1)] + 'm' + h + '\033[0m'}
-         log ('çiçek wrote head with status code', isNaN (head) ? f (head [0]) : f (head), '(' + cicek.find_HTTP_status_code_description (isNaN (head) ? head [0] : head) + ')', isNaN (head) ? 'and headers ' + teishi.s (head [1]) : '');
+   cicek.cookie = {
+      nameValidator:  new RegExp ('^[' + cicek.escapeString ("!#$%&'*+-.^_`|~")             + '0-9a-zA-Z]+$'),
+      valueValidator: new RegExp ('^[' + cicek.escapeString ("!#$%&'*+-.^_`|~/=?@<>()[]{}") + '0-9a-zA-Z]+$')
+   }
+
+   cicek.cookie.read = function (cookieString) {
+
+      if (teishi.stop ('cicek.cookie.read', ['cookie string', cookieString, 'string'])) return false;
+
+      var output = {};
+
+      dale.do (cookieString.split (/;\s+/), function (v) {
+         v = v.split ('=');
+         var name = v [0];
+         var value = v.slice (1).join ('=').slice (1, -1);
+         if (cicek.cookie.secret) {
+            var signature = value.split ('.').slice (-1) [0];
+            value         = value.split ('.').slice (0, -1).join ('.');
+            var hmac = crypto.createHmac ('sha256', cicek.cookie.secret);
+            hmac.update (value);
+            var digest = hmac.digest ('base64').replace (/=/g, '');
+            if (signature !== digest) return log ('Invalid signature in cookie', {value: value, digest: digest, signature: signature});
+         }
+         output [name] = value;
+      });
+
+      return output;
+   }
+
+   cicek.cookie.write = function (name, value, options) {
+
+      options = options || {};
+
+      if (teishi.stop ('cicek.cookie.write', [
+         ['name', name, 'string'],
+         [value !== false, ['value', value, 'string', 'oneOf']],
+         ['name', name,   cicek.cookie.nameValidator, teishi.test.match],
+         [value !== false, ['value', value, cicek.cookie.valueValidator, teishi.test.match]],
+         ['options', options, 'object'],
+         [function () {return [
+            ['options keys', dale.keys (options),  ['domain', 'path', 'expires', 'maxage', 'secure', 'httponly'], 'eachOf', teishi.test.equal],
+            ['options.domain',   options.domain,   ['undefined', 'string'],         'oneOf'],
+            ['options.path',     options.path,     ['undefined', 'string'],         'oneOf'],
+            ['options.expires',  options.expires,  ['undefined', 'string', 'date'], 'oneOf'],
+            ['options.maxage',   options.maxage,   ['undefined', 'integer'],        'oneOf'],
+            ['options.secure',   options.secure,   ['undefined', 'boolean'],        'oneOf'],
+            ['options.httponly', options.httponly, ['undefined', 'boolean'],        'oneOf'],
+         ]}]
+      ])) return false;
+
+      if (options && teishi.t (options.expires) === 'date') options.expires = options.expires.toUTCString ();
+      if (value === false)                                  options.maxage  = 0;
+
+      if (cicek.cookie.secret && value) {
+         var hmac = crypto.createHmac ('sha256', cicek.cookie.secret);
+         hmac.update (value);
+         var signature = '.' + hmac.digest ('base64').replace (/=/g, '');
       }
-   }
 
-   cicek.body = function (response, body) {
-      if (cicek.v.response (response) === false) return false;
-      if (body === undefined) body = '';
-      if (teishi.type (body) !== 'string') body = teishi.s (body);
-      if (body === false) body = body + '';
-      response.write (body);
-   }
+      var cookie = name + '="' + value + (signature || '') + '"; ';
 
-   cicek.end = function (response, head, body, verbose) {
-      if (cicek.head (response, head, verbose) === false || cicek.body (response, body) === false) {
-         return false;
-      }
-      response.end ();
-   }
-
-   // çiçek.rCookie takes a request and a string. If any of these inputs is invalid, it returns false. If a cookie is found that matches the string, the value of the cookie is returned. If not, false is returned.
-
-   cicek.rCookie = function (request, string) {
-      if ((cicek.v.request (request) && teishi.type (string) === 'string') === false) return false;
-      var cookie = false;
-      if (request.headers.cookie) {
-         dale.stop_on (request.headers.cookie.split (';'), true, function (v) {
-                                                                        // Notice we escape '*' too, because we want to treat it literally.
-            var regex = new RegExp ('^\\s*' + cicek.escapeRegex (string).replace ('*', '\\*') + '=');
-            if (v.match (regex) !== null) {
-               cookie = v.replace (regex, '');
-               return true;
-            }
-         });
-      }
+      dale.do (options, function (v, k) {
+         if (k === 'maxage') k = 'max-age';
+         if (v !== undefined) cookie += k + (v === true ? '' : '=' + v) + '; ';
+      });
       return cookie;
    }
 
-   // *** ROUTE FUNCTIONS ***
+   // *** INITIALIZATION ***
 
-   // These functions always receive a request and a response as first and second argument, and they are usually invoked in routes.
-   // For more information on how they work, please refer to the README.
+   cicek.parser = function (Routes) {
+      var routes = [];
 
-   // Send HTML
-   cicek.sHTML = function (request, response, HTML) {
-      // We don't validate the request since we don't use it! We place it as a parameter just because we want to invoke çiçek.sHTML directly from a çiçek route, and the router always passes request and response.
-      if (cicek.v.response (response) === false) return false;
-      if (teishi.type (HTML) !== 'string') {
-         cicek.end (response, 500, 'Server tried to serve invalid HTML string.');
+      var validate = function (route) {
+         return teishi.v ([
+            ['çiçek route', route, 'array'],
+            function () {return [
+               [dale.stopOnNot (route [0], true, function (v) {
+                  return teishi.t (v) === 'string';
+               }) || false, [
+                  ['çiçek route length', route.length, {min: 3}, teishi.test.range],
+                  ['çiçek route method', route [0], ['string', 'array'], 'oneOf'],
+                  [teishi.t (route [0]) === 'string', [
+                     ['çiçek route method', route [0], cicek.http.methods.concat (['all']), 'oneOf', teishi.test.equal],
+                  ]],
+                  [teishi.t (route [0]) === 'array', [
+                     ['çiçek route method', route [0], cicek.http.methods, 'eachOf', teishi.test.equal],
+                  ]],
+                  ['çiçek route path', route [1], ['regex', 'string'], 'eachOf'],
+                  ['çiçek route function', route [2], 'function']
+               ]]
+            ]}
+         ]);
       }
-      else cicek.end (response, [200, {'Content-Type': 'text/html'}], HTML);
-   }
 
-   // Receive data
-   cicek.receive = function (request, response, callback) {
-      if (cicek.v.request (request) && cicek.v.response (response) && (teishi.type (callback) === 'function') !== true) return false;
-      var data = '';
-      request.on ('data', function (incoming_data) {
-         data += incoming_data;
-      });
-      request.on ('end', function () {
-         callback (response, data);
-      });
-      request.on ('error', function () {
-         cicek.end (response, 400, 'There was an error when receiving data from the request.');
-      });
-   }
+      var flatten = function (route) {
 
-   // Receive JSON
-   cicek.rJSON = function (request, response, callback) {
-      if ((cicek.v.request (request) && cicek.v.response (response) && (teishi.type (callback) === 'function')) !== true) return false;
-      cicek.receive (request, response, function (response, string) {
-         if (teishi.p (string) === false) {
-            cicek.end (response, 400, 'Expecting JSON, but instead received ' + string);
+         if (validate (route) === false) return false;
+
+         if (dale.stopOnNot (route [0], true, function (v) {
+            return teishi.t (v) === 'string';
+         })) {
+            return dale.do (route [1], function (v2) {
+               routes.push ([route [0]].concat ([v2]).concat (route.slice (2)));
+            });
          }
-         else {
-            callback (response, teishi.p (string));
+         if (dale.stopOn (route, false, function (v) {
+            return flatten (v);
+         }) === false) return false;
+      }
+
+      if (flatten (Routes) === false) return false;
+
+      // a char that's not a backslash, a backslash plus an opening parenthesis, 0-n chars that aren't a closing parenthesis, a backslash plus a closing parenthesis
+      var matchParenthesis = /[^\\]\([^)]*\)/g;
+      // slash, colon, 1 or more chars that aren't parenthesis nor slash
+      var matchParameter   = /\/:[^()/]+/g;
+
+      var invalidRoute = dale.stopOnNot (routes, undefined, function (route, index) {
+         var path = route [1];
+         if (teishi.t (path) === 'regex') return;
+         var regex;
+         if (path [0] !== '/') path = '/' + path;
+         if (path.length > 1 && path [path.length - 1] === '/' && path [path.length - 2] !== '\\') path = path.slice (0, -1);
+
+         var captures = [];
+         dale.do (path.match (matchParenthesis), function (v, k) {
+            if (v === null) return;
+            captures.push ([path.indexOf (v.slice (1, v.length)), k]);
+         });
+
+         dale.do (path.match (matchParameter), function (v) {
+            if (v === null) return;
+            captures.push ([path.indexOf (v.slice (1, v.length)), v.slice (2, v.length)]);
+         });
+
+         captures.sort (function (a, b) {return a [0] > b [0]});
+         path = cicek.escapeString (path, ['(', ')', '?', '*', '+', '/']);
+         regex = '^' + path.replace (matchParameter, '\/([^()\/]+)') + '$';
+         regex = regex.replace (/\*/g, '.*');
+         try {
+            regex = new RegExp (regex);
          }
+         catch (error) {return path}
+         captures = dale.do (captures, function (v) {return v [1]});
+         routes [index] [1] = captures ? [regex, captures] : regex;
       });
+      if (invalidRoute) return teishi.l ('Error', 'Invalid route path', invalidRoute);
+      return routes;
    }
 
-   // Send JSON
-   cicek.sJSON = function (request, response, JSON) {
-      // We don't validate the request since we don't use it! We place it as a parameter just because we want to invoke çiçek.sJSON directly from a çiçek route, and the router always passes request and response.
-      if (cicek.v.response (response) === false) return false;
-      if (teishi.s (JSON) === false) {
-         cicek.end (response, 500, 'Server generated invalid JSON.');
+   cicek.listen = function () {
+      var arg = 0;
+      var port = arguments [arg++];
+      var options = teishi.t (arguments [arg]) === 'object' ? arguments [arg++] : {};
+      var routes = arguments [arg];
+
+      if (teishi.stop ('çiçek listen', [
+         ['port', port, 'integer'],
+         ['port', port, {min: 1, max: 65535}, teishi.test.range],
+         ['options keys', dale.keys (options), ['cookieSecret', 'noColors', 'fileCallback', 'https'], 'eachOf', teishi.test.equal],
+         ['options.cookieSecret', options.cookieSecret, ['string', 'undefined'],   'oneOf'],
+         ['options.noColors',     options.noColors,     ['boolean', 'undefined'],  'oneOf'],
+         ['options.fileCallback', options.fileCallback, ['function', 'undefined'], 'oneOf'],
+         ['options.https',        options.https,        ['object', 'undefined'],   'oneOf'],
+         [options.https !== undefined, [function () {return [
+            ['options.https.key',  options.https.key,  'string'],
+            ['options.https.cert', options.https.cert, 'string'],
+            ['options.https.only', options.https.only, ['undefined', 'boolean'], 'oneOf'],
+            [! options.https.only, [
+               ['options.https.port', options.https.port, {min: 1, max: 65535}, teishi.test.range],
+               ['options.https.port', options.https.port, port, teishi.test.notEqual]
+            ]]
+         ]}]]
+      ])) return false;
+
+      if (options.fileCallback) cicek.fileCallback = options.fileCallback;
+
+      if (options.cookieSecret) cicek.cookie.secret = options.cookieSecret;
+      if (options.noColors) {
+         teishi.lno ();
+         cicek.noColors = true;
       }
-      else {
-         cicek.end (response, [200, {'Content-Type': 'application/json'}], JSON);
+
+      routes = cicek.parser (routes);
+
+      if (routes === false) return false;
+
+      var httpServer, httpsServer;
+
+      if (options.https === undefined || ! options.https.only) {
+         httpServer = http.createServer (function (request, response) {
+            cicek.avant (request, response, routes);
+         }).listen (port, function () {
+            teishi.l ('Çiçek', 'listening in port', port);
+         });
       }
+
+      if (options.https) {
+         httpsServer = https.createServer ({key: fs.readFileSync (options.https.key, 'utf8'), cert: fs.readFileSync (options.https.cert, 'utf8')}, function (request, response) {
+            cicek.avant (request, response, routes);
+         }).listen (options.https.only ? port : options.https.port, function () {
+            teishi.l ('Çiçek', 'listening in port', options.https.only ? port : options.https.port);
+         });
+      }
+
+      return options.https ? {http: httpServer, https: httpsServer} : httpServer;
    }
 
-   // Send file
-   cicek.sFile = function (request, response, paths) {
+   // *** THE OUTER LOOP ***
 
-      if (paths === undefined) paths = '';
-      if (teishi.type (paths) === 'string') paths = [paths];
+   var requestNumber = 0;
 
-      if (teishi.stop ([{
-         compare: paths,
-         to: 'array',
-         test: teishi.test.type,
-         label: 'paths passed to çiçek.file'
-      }, {
-         compare: paths,
-         to: 'string',
-         test: teishi.test.type,
-         multi: 'each',
-         label: 'each path passed to çiçek.file'
-      }])) return false;
+   cicek.avant = function (request, response, routes) {
+      response.request = request;
 
-      var file_found = dale.stop_on (paths, true, function (v) {
-         if (fs.existsSync (v + request.url)) {
-            cicek.head (response, [200, {'Content-Type': mime.lookup (v + request.url)}]);
-            fs.createReadStream (v + request.url).pipe (response);
-            return true;
-         }
-      });
-      if (! file_found) {
-         cicek.end (response, 404);
+      request.data = {};
+
+      response.log = {
+         n: ++requestNumber,
+         start: teishi.time ()
       }
+
+      request.method = request.method.toLowerCase ();
+
+      request.origin = request.headers ['x-forwarded-for'] || request.connection.remoteAddress || request.socket.remoteAddress || request.connection.socket.remoteAddress;
+
+      var url = request.url;
+
+      request.data.query = request.url.split ('?') [1];
+      if (request.data.query) request.url = request.url.replace ('?' + request.data.query, '');
+
+      try {
+         request.url = decodeURIComponent (request.url);
+         if (request.data.query) request.data.query = query.parse (decodeURIComponent (request.data.query));
+      }
+      catch (error) {
+         return cicek.reply (response, 400, 'Invalid URL: ' + url);
+      }
+      if (request.data.query === undefined) delete request.data.query;
+
+      cicek.router (request, response, routes);
    }
-
-   // Receive file
-   cicek.rFile = function (request, response, options, callback) {
-      if ((cicek.v.request (request) && cicek.v.response (response)) !== true) return false;
-      if (teishi.stop ([{
-         compare: callback,
-         to: 'function',
-         test: teishi.test.type,
-         label: 'Callback argument passed to çiçek.rFile'
-      }, {
-         compare: options,
-         to: ['object', 'undefined'],
-         test: teishi.test.type,
-         multi: 'one_of',
-         label: 'Options argument passed to çiçek.rFile'
-      }])) return cicek.end (response, 500);
-      if (options !== undefined) {
-         if (teishi.stop ([{
-            compare: dale.do (options, function (v, k) {return k}),
-            to: ['encoding', 'uploadDir', 'keepExtensions', 'type', 'maxFieldsSize', 'maxFields', 'hash', 'multiples'],
-            multi: 'each_of',
-            label: 'Keys of options argument passed to çiçek.rFile'
-         }, {
-            compare: options.encoding,
-            to: ['string', 'undefined'],
-            test: teishi.test.type,
-            multi: 'one_of',
-            label: 'options.encoding passed to çiçek.rFile'
-         }, {
-            compare: options.uploadDir,
-            to: ['string', 'undefined'],
-            test: teishi.test.type,
-            multi: 'one_of',
-            label: 'options.uploadDir passed to çiçek.rFile'
-         }, {
-            compare: options.keepExtensions,
-            to: ['boolean', 'undefined'],
-            test: teishi.test.type,
-            multi: 'one_of',
-            label: 'options.keepExtensions passed to çiçek.rFile'
-         }, {
-            compare: options.type,
-            to: [undefined, 'multipart', 'urlencoded'],
-            multi: 'one_of',
-            label: 'options.type passed to çiçek.rFile'
-         }, {
-            compare: options.maxFieldsSize,
-            to: ['number', 'undefined'],
-            test: teishi.test.type,
-            multi: 'one_of',
-            label: 'options.maxFieldsSize passed to çiçek.rFile'
-         }, {
-            compare: options.maxFields,
-            to: ['number', 'undefined'],
-            test: teishi.test.type,
-            multi: 'one_of',
-            label: 'options.maxFieldsSize passed to çiçek.rFile'
-         }, {
-            compare: options.hash,
-            to: [undefined, 'sha1', 'md5'],
-            multi: 'one_of',
-            label: 'options.path passed to çiçek.rFile'
-         }, {
-            compare: options.multiples,
-            to: ['boolean', 'undefined'],
-            test: teishi.test.type,
-            multi: 'one_of',
-            label: 'options.maxFieldsSize passed to çiçek.rFile'
-         }])) return cicek.end (response, 500);
-      }
-
-      if (options.uploadDir && (fs.existsSync (options.uploadDir) === false)) {
-         log ('options.uploadDir (', options.uploadDir, ') does not exist!');
-         return cicek.end (response, 500);
-      }
-
-      var form = new formidable.IncomingForm ();
-
-      // We apply the options.
-      dale.do (options, function (v, k) {
-         form [k] = v;
-      });
-
-      form.parse (request, function (error, fields, files) {
-         callback (response, error, fields, files);
-      });
-   }
-
-   // *** ROUTER ***
 
    cicek.router = function (request, response, routes) {
 
-      // Validation of the inputs.
-      if (cicek.v.request (request) && cicek.v.response (response) && cicek.v.routes (routes) !== true) return false;
-
-      // Decode the url.
-      request.url = decodeURIComponent (request.url);
-
-      // Remove first and last slash.
-      request.url = request.url.replace (/^\//, '').replace (/\/$/, '');
-
-      // If the url is an empty string (because we want the root of the domain), we set it to a single slash ('/').
-      if (request.url === '') request.url = '/';
-
-      // Convert request method to lowercase.
-      request.method = request.method.toLowerCase ();
-
-      // If the http verb contained in the request is not in the routes, return a 405 code and a list of supported methods.
-      if (routes [request.method] === undefined) {
-         cicek.end (response, [405, {'Allow': dale.do (routes, function (v, k) {return k}).join (', ')}]);
-         return;
-      }
-
-      // Check that the request headers are valid.
-      var request_header_test = teishi.stop ({
-         compare: dale.do (request.headers, function (v, k) {return k}),
-         to: cicek.constants.HTTP_request_headers,
-         multi: 'each_of',
-         label: 'HTTP request headers'
-      }, true);
-
-      // If they are not, return a 400 code.
-      if (request_header_test [0] === true) {
-         cicek.end (response, 400, request_header_test [1]);
-         return;
-      }
-
-      // Find the current_route.
-      var current_route = routes [request.method] [request.url];
-
-      // If the current_route is not found, a) try to find matching wildcards, and failing that, b) assign the current_route to the default key.
-      if (current_route === undefined) {
-         // Test the wildcards.
-         dale.stop_on (routes [request.method], true, function (v, k) {
-            var regex = new RegExp ('^' + cicek.escapeRegex (k).replace (/\*/g, '.*') + '$');
-            if (request.url.match (regex) !== null) {
-               current_route = v;
-               return true;
-            }
-         });
-         // If after testing for wildcards we still haven't found a route, assign the default route to this request.
-         current_route === undefined ? current_route = routes [request.method].default : '';
-      }
-      if (teishi.type (current_route) === 'function') current_route (request, response);
-      else {
-         current_route [0].apply (current_route [0], [request, response].concat (current_route.slice (1, current_route.length)));
-      }
-   }
-
-   cicek.listen = function (port, routes) {
-      if (teishi.stop ({
-         compare: port,
-         to: 'number',
-         test: teishi.test.type,
-         label: 'Port passed to çiçek.listen'
+      if (teishi.stop (['HTTP request headers', dale.keys (request.headers), cicek.http.requestHeaders, 'eachOf', teishi.test.match], function (error) {
+         cicek.reply (response, 400, error);
       })) return false;
 
-      if (port < 1 || port > 65535 || (! teishi.is_integer (port))) {
-         console.log ('Port must be an integer in the range 1-65535');
-         return false;
-      }
+      var allowedMethods = [];
+      if (dale.stopOnNot (routes, undefined, function (v, k) {
+         if (response.offset !== undefined && k <= response.offset) return;
+         var captures = teishi.t (v [1]) === 'regex' ? undefined : v [1] [1];
+         var regex    = captures ? v [1] [0] : v [1];
+         var match = request.url.match (regex);
+         if (match === null) return;
 
-      if (cicek.v.routes (routes) === false) return false;
+         if (v [0] === 'all' || dale.stopOn (v [0], true, function (v2) {
+            return v2 === request.method;
+         })) {
+            if (captures) {
+               dale.do (captures, function (v2, k2) {
+                  request.data.params = request.data.params || {};
+                  request.data.params [v2] = match [k2 + 1];
+               });
+            }
+            else {
+               dale.do (match.slice (1), function (v, k) {
+                  request.data.params = request.data.params || {};
+                  request.data.params [k] = v;
+               });
+            }
 
-      var server = http.createServer (function (request, response) {
-         cicek.router (request, response, routes);
-      }).listen (port);
+            if (response.next === undefined) response.next = function () {
+               cicek.router (request, response, routes);
+            }
 
-      // I couldn't resist doing this.
-      log ('\033[1m\033[3' + Math.round ((Math.random () * 7)) + 'm' + 'Çiçek listening in port', port + '!\033[0m');
+            if (response.offset === undefined) {
+               response.offset = k;
+               cicek.fork (request, response, v);
+            }
+            else {
+               response.offset = k;
+               v [2].apply (v [2], [request, response].concat (v.slice (3)));
+            }
+            return true;
+         }
 
-      return server;
+         dale.do (v [0], function (v2) {
+            if (allowedMethods.indexOf (v2) === -1) allowedMethods.push (v2);
+         });
+
+      })) return;
+
+      if (allowedMethods.length === 0) return cicek.reply (response, 404, 'Resource not found: ' + request.url);
+
+      cicek.reply (response, 405, 'HTTP method ' + request.method + ' not supported for this route (' + request.url + '). Supported methods are: ' + allowedMethods.join (', '), {'allow': allowedMethods.join (', ')});
+
    }
 
-}).call (this);
+   cicek.fork = function (request, response, route) {
+      if (request.headers.cookie) request.data.cookie = cicek.cookie.read (request.headers.cookie);
+
+      if (request.headers ['content-type'] && request.headers ['content-type'].match (/multipart\/form-data/i)) return cicek.receiveMulti (request, response, route);
+      cicek.receive (request, response, route);
+   }
+
+   cicek.apres = function (response) {
+      if (response.request.data.files) {
+         dale.do (response.request.data.files, function (v) {
+            fs.stat (v, function (error, stat) {
+               if (error && error.code !== 'ENOENT') return log ('There was an error when trying to delete the file at path', v);
+               if (! error) fs.unlink (v, function (error) {
+                  if (error) log ('There was an error when trying to delete the file at path', v);
+               });
+            });
+         });
+      }
+      response.log.url            = response.request.url,
+      response.log.method         = response.request.method
+      response.log.requestHeaders = response.request.headers;
+      response.log.origin         = response.request.origin;
+      response.log.end            = teishi.time ();
+      response.log.duration       = response.log.end - response.log.start;
+
+      log ('Response #' + response.log.n + ' (' + response.log.duration + 'ms)', response.log.method.toUpperCase (), response.log.url, (cicek.noColors ? '' : '\033[37m\033[4' + {1: 6, 2: 2, 3: 4, 4: 3, 5: 1} [(response.log.code + '') [0]] + 'm') + response.log.code + (cicek.noColors ? '' : '\033[0m\033[1m'), '"' + response.log.body.slice (0, 150) + (response.log.body.length > 150 ? '...' : '') + '"', response.log.responseHeaders);
+   }
+
+   // *** INPUT FUNCTIONS ***
+
+   cicek.receive = function (request, response, route) {
+
+      request.body = '';
+
+      request.on ('data', function (incoming) {
+         request.body += incoming;
+      });
+
+      request.on ('end', function () {
+         var parsed;
+         if (request.headers ['content-type'] === 'application/json') {
+            parsed = teishi.p (request.body);
+            if (parsed === false) return cicek.reply (response, 400, 'Expecting JSON, but instead received ' + request.body);
+            request.body = parsed;
+         }
+         if (request.headers ['content-type'] === 'application/x-www-form-urlencoded') {
+            try {
+               parsed = query.parse (decodeURIComponent (request.body));
+               request.body = parsed;
+            }
+            catch (error) {
+               return cicek.reply (response, 400, 'Invalid body: ' + request.body);
+            }
+         }
+
+         route [2].apply (route [2], [request, response].concat (route.slice (3)));
+      });
+
+      request.on ('error', function (error) {
+         cicek.reply (response, 400, 'There was an error while receiving data from the request: ' + error);
+      });
+   }
+
+   cicek.receiveMulti = function (request, response, route) {
+
+      try {
+         var busboy = new Busboy ({headers: request.headers});
+      }
+      catch (error) {
+         return cicek.reply (response, 400, 'Invalid headers sent.');
+      }
+
+      request.data.fields = {};
+      request.data.files  = {};
+
+      busboy.on ('error', function (error) {
+         cicek.reply (response, 400, error);
+      });
+
+      busboy.on ('field', function (field, value, fieldTruncated, valTruncated) {
+         request.data.fields [field] = value;
+      });
+
+      var fileCallback = function (field, file, value, encoding, mimetype) {
+
+         var random = dale.do (crypto.randomBytes (24), function (v) {
+            return ('0' + v.toString (16)).slice (-2);
+         }).join ('');
+
+         request.data.files [field] = path.join (os.tmpDir (), random + '_' + value);
+
+         file.pipe (fs.createWriteStream (request.data.files [field]));
+
+         file.on ('error', function (error) {
+            cicek.reply (response, 400, error);
+         });
+      }
+
+      busboy.on ('file', cicek.fileCallback || fileCallback);
+
+      busboy.on ('finish', function () {
+         route [2].apply (route [2], [request, response].concat (route.slice (3)));
+      });
+
+      request.pipe (busboy);
+   }
+
+   // *** OUTPUT FUNCTIONS ***
+
+   cicek.reply = function () {
+      var argumentCount = 0;
+      if (arguments [0].writable === undefined) argumentCount++;
+      var response    = arguments [argumentCount++];
+      var code        = teishi.t (arguments [argumentCount]) === 'integer' ? arguments [argumentCount++] : 200;
+      var body        = arguments [argumentCount++];
+      var headers     = teishi.t (arguments [argumentCount]) === 'object'  ? arguments [argumentCount++] : {};
+      var contentType = teishi.t (arguments [argumentCount]) === 'string'  ? arguments [argumentCount]   : undefined;
+
+      if (teishi.stop ('cicek.reply', [
+         ['response.connection', response.connection, undefined, teishi.test.notEqual],
+         function () {return ['response.connection.writable', response.connection.writable, true, teishi.test.equal]},
+         ['çiçek head HTTP status code', code, cicek.http.codes, 'oneOf', teishi.test.equal],
+         ['çiçek head HTTP response header key', dale.keys (headers), cicek.http.responseHeaders, 'eachOf', teishi.test.match],
+         ['çiçek head HTTP response header value', headers, ['string', 'integer'], 'eachOf'],
+      ], function (error) {
+         response.writeHead (500, {'content-type': 'text/plain; charset=utf-8'});
+         response.end (error);
+      })) return false;
+
+      if (! body && body !== 0) body = '';
+      var bodyType = teishi.t (body);
+
+      if (bodyType === 'object' || bodyType === 'array') {
+         var JSON = teishi.s (body);
+         if (JSON === false) return cicek.reply (response, 500, 'Trying to serve invalid JSON: ' + body);
+         body = JSON;
+         if (headers ['content-type'] === undefined) headers ['content-type'] = 'application/json';
+      }
+      if (bodyType !== 'string') body += '';
+
+      var callback = function (error, data) {
+         if (error) {
+            head = 500;
+            body = 'Compression error.';
+         }
+
+         response.log.code = code;
+         response.log.body = body;
+         response.log.responseHeaders = headers;
+
+         response.writeHead (code, headers);
+         response.end (data);
+
+         cicek.apres (response);
+      }
+
+      if (contentType) headers ['content-type'] = mime.lookup (contentType) + '; charset=utf-8';
+
+      if (response.request.method === 'get' || response.request.method === 'post') {
+         if (headers.etag === false)     headers.etag = undefined;
+         if (headers.etag === undefined) headers.etag = cicek.etag (body, true);
+         if (response.request.headers ['if-none-match'] && response.request.headers ['if-none-match'] === headers.etag && code === 200) {
+            // http://stackoverflow.com/a/4393499 on no header override
+            code = 304;
+            return callback (null, '');
+         }
+      }
+
+      // explain override encoding with 'no'
+      var encoding = response.request.headers ['accept-encoding'] || '';
+
+      if (encoding.match ('deflate')) {
+         headers ['content-encoding'] = 'deflate';
+         zlib.deflate (body, callback);
+      }
+      else if (encoding.match ('gzip')) {
+         headers ['content-encoding'] = 'gzip';
+         zlib.gzip    (body, callback);
+      }
+      else callback (null, body);
+   }
+
+   cicek.file = function () {
+
+      var argumentCount = 0;
+      var request  = arguments [0].writable === undefined              ? arguments [argumentCount++] : undefined;
+      var response = arguments [argumentCount++];
+      var file     = teishi.t (arguments [argumentCount]) === 'string' ? arguments [argumentCount++] : undefined;
+      var paths    = teishi.t (arguments [argumentCount]) === 'array'  ? arguments [argumentCount++] : [__dirname];
+      var headers  = arguments [argumentCount] === 'object'            ? arguments [argumentCount++] : {};
+      var dots     = arguments [argumentCount] === true                ? true                        : false;
+
+      if (teishi.stop ('cicek.file', [
+         ['response.connection', response.connection, undefined, teishi.test.notEqual],
+         function () {return ['response.connection.writable', response.connection.writable, true, teishi.test.equal]},
+         ['çiçek head HTTP response header', dale.keys (headers), cicek.http.responseHeaders, 'eachOf', teishi.test.match],
+         [paths !== undefined, [
+            ['paths', paths, 'string', 'each'],
+            function () {return ['paths length', paths.length, {min: 1}, teishi.test.range]}]
+         ],
+         [request === undefined, ['file', file, 'string']]
+      ], function (error) {
+         cicek.reply (response, 500, error);
+      }));
+
+      if (! file && dots !== true && request.url.match (/\.\./) !== null) return cicek.reply (response, 400, 'No dots (..) allowed in çiçek path, but path is: ' + request.url);
+
+      if (file === undefined) file = (request.data.params && request.data.params ['0']) || request.url;
+
+      // explain override encoding with 'no'
+      // y override etag con false
+      var encoding = response.request.headers ['accept-encoding'] || '';
+
+      if (encoding.match ('deflate')) {
+         encoding = zlib.createDeflate ();
+         headers ['content-encoding'] = 'deflate';
+      }
+      else if (encoding.match ('gzip')) {
+         headers ['content-encoding'] = 'gzip';
+         encoding = zlib.createGzip ();
+      }
+      else encoding = false;
+
+      var counter = 0;
+
+      var callback = function (code, Path) {
+         response.log.code = code;
+         response.log.responseHeaders = headers;
+         response.log.body = '[FILE OMITTED]';
+         if (Path) response.log.path = Path;
+         cicek.apres (response)
+      }
+
+      var find = function () {
+         var Path = path.join (paths [counter], file);
+         fs.stat (Path, function (error, stats) {
+            counter++;
+            if (error || stats.isFile () !== true) {
+               if (error && error.code !== 'ENOENT')  return cicek.reply (response, 500, error);
+               if (counter === paths.length)          return cicek.reply (response, 404, 'File ' + file + ' not found.');
+               return find ();
+            }
+
+            if (headers.etag === false)     headers.etag = undefined;
+            if (headers.etag === undefined) headers.etag = cicek.etag (teishi.s ([stats.mtime, stats.size]));
+
+            if (headers ['content-type'] === undefined) headers ['content-type'] = mime.lookup (Path) + '; charset=utf-8';
+
+            if (response.request.headers ['if-none-match'] === headers.etag) {
+               response.writeHead (304, headers);
+               response.end ();
+               return callback (304);
+            }
+
+            response.writeHead (200, headers);
+            var stream = fs.createReadStream (Path);
+            if (encoding) stream.pipe (encoding).pipe (response);
+            else          stream.pipe (response);
+
+            stream.on ('end', function () {
+               callback (200, Path);
+            });
+         });
+      }
+      find ();
+   }
+
+}) ();
