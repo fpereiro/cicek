@@ -1,5 +1,5 @@
 /*
-çiçek - v2.0.0
+çiçek - v2.0.1
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -220,11 +220,13 @@ Please refer to readme.md to read the annotated source.
       if (teishi.stop ('çiçek listen', [
          ['port', port, 'integer'],
          ['port', port, {min: 1, max: 65535}, teishi.test.range],
-         ['options keys', dale.keys (options), ['cookieSecret', 'noColors', 'fileCallback', 'https'], 'eachOf', teishi.test.equal],
+         ['options keys', dale.keys (options), ['cookieSecret', 'noColors', 'fileCallback', 'https', 'beforeStart', 'afterStart'], 'eachOf', teishi.test.equal],
          ['options.cookieSecret', options.cookieSecret, ['string', 'undefined'],   'oneOf'],
          ['options.noColors',     options.noColors,     ['boolean', 'undefined'],  'oneOf'],
          ['options.fileCallback', options.fileCallback, ['function', 'undefined'], 'oneOf'],
          ['options.https',        options.https,        ['object', 'undefined'],   'oneOf'],
+         ['options.beforeStart',  options.beforeStart,  ['function', 'undefined'], 'oneOf'],
+         ['options.afterStart',   options.afterStart,   ['function', 'undefined'], 'oneOf'],
          [options.https !== undefined, [function () {return [
             ['options.https.key',  options.https.key,  'string'],
             ['options.https.cert', options.https.cert, 'string'],
@@ -248,25 +250,30 @@ Please refer to readme.md to read the annotated source.
 
       if (routes === false) return false;
 
-      var httpServer, httpsServer;
-
-      if (options.https === undefined || ! options.https.only) {
-         httpServer = http.createServer (function (request, response) {
-            cicek.avant (request, response, routes);
-         }).listen (port, function () {
-            teishi.l ('Çiçek', 'listening in port', port);
-         });
+      options.beforeStart = options.beforeStart || function (callback) {return callback ()};
+      options.afterStart  = options.afterStart  || function () {
+         if (! options.https || ! options.https.only) teishi.l ('Çiçek', 'listening in port', port);
+         if (options.https) teishi.l ('Çiçek', 'listening in port', options.https.only ? port : options.https.port);
       }
 
-      if (options.https) {
-         httpsServer = https.createServer ({key: fs.readFileSync (options.https.key, 'utf8'), cert: fs.readFileSync (options.https.cert, 'utf8')}, function (request, response) {
-            cicek.avant (request, response, routes);
-         }).listen (options.https.only ? port : options.https.port, function () {
-            teishi.l ('Çiçek', 'listening in port', options.https.only ? port : options.https.port);
-         });
-      }
+      options.beforeStart (function () {
 
-      return options.https ? {http: httpServer, https: httpsServer} : httpServer;
+         var httpServer, httpsServer;
+
+         if (options.https === undefined || ! options.https.only) {
+            httpServer = http.createServer (function (request, response) {
+               cicek.avant (request, response, routes);
+            }).listen (port, options.afterStart);
+         }
+
+         if (options.https) {
+            httpsServer = https.createServer ({key: fs.readFileSync (options.https.key, 'utf8'), cert: fs.readFileSync (options.https.cert, 'utf8')}, function (request, response) {
+               cicek.avant (request, response, routes);
+            }).listen (options.https.only ? port : options.https.port, options.afterStart);
+         }
+
+         return options.https ? {http: httpServer, https: httpsServer} : httpServer;
+      });
    }
 
    // *** THE OUTER LOOP ***

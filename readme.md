@@ -4,7 +4,7 @@
 
 çiçek is a web server. It is designed to be:
 
-1. Minimalistic: çiçek is ~630 lines of code and uses only four libraries:
+1. Minimalistic: çiçek is ~640 lines of code and uses only four libraries:
    * [busboy](https://github.com/mscdex/busboy), for multipart/form-data support.
    * [mime](https://github.com/broofa/node-mime), for guessing the MIME type of a file.
    * [dale](https://github.com/fpereiro/dale), for looping.

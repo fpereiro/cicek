@@ -1,5 +1,5 @@
 /*
-çiçek - v2.0.0
+çiçek - v2.0.1
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
