@@ -1,5 +1,5 @@
 /*
-çiçek - v2.1.1
+çiçek - v2.1.2
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -25,7 +25,7 @@ To run the example first run `node example` at the command prompt and then open 
       var echo = function (request, response) {
 
          if (response.offset === 0) {
-            log ('Passing through common route.');
+            cicek.out ('Passing through common route.');
             return response.next ();
          }
 
@@ -140,7 +140,6 @@ To run the example first run `node example` at the command prompt and then open 
             }],
             ['Cookie set', 'get', 'cookieSet'],
             ['Check cookie and tamper it', 'get', '/param1/param2/param3', function (data) {
-               console.log (data.cookie.rat);
                if (data.cookie.rat !== 'salad') return false;
                document.cookie = ('rat=somesalad');
                return true;
