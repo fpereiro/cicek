@@ -1,5 +1,5 @@
 /*
-çiçek - v2.0.1
+çiçek - v2.1.0
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -10,23 +10,25 @@ Please refer to readme.md to read the annotated source.
 
    // *** SETUP ***
 
-   var crypto = require ('crypto');
-   var fs     = require ('fs');
-   var http   = require ('http');
-   var https  = require ('https');
-   var os     = require ('os');
-   var path   = require ('path');
-   var query  = require ('querystring');
-   var zlib   = require ('zlib');
+   var crypto  = require ('crypto');
+   var fs      = require ('fs');
+   var http    = require ('http');
+   var https   = require ('https');
+   var cluster = require ('cluster');
+   var os      = require ('os');
+   var path    = require ('path');
+   var query   = require ('querystring');
+   var zlib    = require ('zlib');
 
-   var Busboy = require ('busboy');
-   var mime   = require ('mime');
-   var dale   = require ('dale');
-   var teishi = require ('teishi');
+   var Busboy  = require ('busboy');
+   var mime    = require ('mime');
+   var dale    = require ('dale');
+   var teishi  = require ('teishi');
+
+   var type = teishi.t;
+   var log  = teishi.l;
 
    var cicek = exports;
-
-   var log = teishi.l;
 
    // *** HTTP CONSTANTS ***
 
@@ -37,10 +39,47 @@ Please refer to readme.md to read the annotated source.
       responseHeaders: new RegExp ('^(' + ['access-control-allow-origin', 'accept-ranges', 'age', 'allow', 'cache-control', 'connection', 'content-encoding', 'content-language', 'content-length', 'content-location', 'content-md5', 'content-disposition', 'content-range', 'content-type', 'date', 'etag', 'expires', 'last-modified', 'link', 'location', 'p3p', 'pragma', 'proxy-authenticate', 'refresh', 'retry-after', 'server', 'set-cookie', 'status', 'strict-transport-security', 'trailer', 'transfer-encoding', 'upgrade', 'vary', 'via', 'warning', 'www-authenticate', 'public-key-pins', 'content-security-policy', 'x-.+'].join ('|') + ')$', 'i')
    }
 
+   // *** OPTIONS OBJECT ***
+
+   cicek.options = {
+      bodyLogLimit: 1024
+   }
+
    // *** HELPER FUNCTIONS ***
 
+   var stop = function (fun, rules) {
+      return teishi.stop (fun, rules, function (error) {
+         cicek.out ({error: error});
+      });
+   }
+
+   cicek.out = function (message) {
+      if (cicek.options.log) {
+         var messageo = type (message, true) !== 'object' ? {message: message} : teishi.c (message);
+         messageo.date = new Date ().toUTCString ();
+         if (messageo.response && type (messageo.response.body) === 'string') messageo.response.body = messageo.response.body.slice (0, cicek.options.bodyLogLimit) + (messageo.response.body.length > cicek.options.bodyLogLimit ? '...' : '');
+         if (type (cicek.options.log) === 'string') fs.appendFile (cicek.options.log, JSON.stringify (messageo) + ',\n', function (error) {
+            if (error) cicek.out ({error: error});
+         });
+         else                                       cicek.options.log (message);
+      }
+
+      if (cicek.options.console === false)             return false;
+      if (type (cicek.options.console) === 'function') cicek.console (message);
+      else if (type (message) === 'object' && dale.keys (message).length === 1) {
+         var what = dale.keys (message) [0];
+         message = message [what];
+         var date = new Date ().toUTCString ();
+         if      (what === 'request')  log (date + ' REQUEST #' + message.number, 'origin: ' + message.origin, message.method.toUpperCase (), message.url, message.headers);
+         else if (what === 'response') log (date + ' RESPONSE #' + message.number + ' (' + message.duration + 'ms)', message.method.toUpperCase (), message.url, '\033[37m\033[4' + {1: 6, 2: 2, 3: 4, 4: 3, 5: 1} [(message.code + '') [0]] + 'm' + message.code + '\033[0m\033[1m', '"' + message.body.slice (0, cicek.options.bodyLogLimit) + (message.body.length > cicek.options.bodyLogLimit ? '...' : '') + '"', message.responseHeaders);
+         else                          log (date + ' ' + what.toUpperCase (), message);
+      }
+      else log.apply (undefined, type (message) === 'array' ? message : [message]);
+      return false;
+   }
+
    cicek.escapeString = function (string, dontEscape) {
-      if (teishi.stop ('çiçek.escapeString', [
+      if (stop ('çiçek.escapeString', [
          ['string', string, 'string'],
          ['dontEscape', dontEscape, ['array', 'undefined'], 'oneOf'],
          [dontEscape !== undefined, ['dontEscape character', dontEscape, 'string', 'each']]
@@ -67,7 +106,7 @@ Please refer to readme.md to read the annotated source.
 
    cicek.cookie.read = function (cookieString) {
 
-      if (teishi.stop ('cicek.cookie.read', ['cookie string', cookieString, 'string'])) return false;
+      if (stop ('cicek.cookie.read', ['cookie string', cookieString, 'string'])) return false;
 
       var output = {};
 
@@ -75,17 +114,16 @@ Please refer to readme.md to read the annotated source.
          v = v.split ('=');
          var name = v [0];
          var value = v.slice (1).join ('=').slice (1, -1);
-         if (cicek.cookie.secret) {
+         if (cicek.options.cookieSecret) {
             var signature = value.split ('.').slice (-1) [0];
             value         = value.split ('.').slice (0, -1).join ('.');
-            var hmac = crypto.createHmac ('sha256', cicek.cookie.secret);
+            var hmac = crypto.createHmac ('sha256', cicek.options.cookieSecret);
             hmac.update (value);
             var digest = hmac.digest ('base64').replace (/=/g, '');
-            if (signature !== digest) return log ('Invalid signature in cookie', {value: value, digest: digest, signature: signature});
+            if (signature !== digest) return cicek.out ({error: ['Invalid signature in cookie', {value: value, digest: digest, signature: signature}]});
          }
          output [name] = value;
       });
-
       return output;
    }
 
@@ -93,7 +131,7 @@ Please refer to readme.md to read the annotated source.
 
       options = options || {};
 
-      if (teishi.stop ('cicek.cookie.write', [
+      if (stop ('cicek.cookie.write', [
          ['name', name, 'string'],
          [value !== false, ['value', value, 'string', 'oneOf']],
          ['name', name,   cicek.cookie.nameValidator, teishi.test.match],
@@ -110,11 +148,11 @@ Please refer to readme.md to read the annotated source.
          ]}]
       ])) return false;
 
-      if (options && teishi.t (options.expires) === 'date') options.expires = options.expires.toUTCString ();
-      if (value === false)                                  options.maxage  = 0;
+      if (options && type (options.expires) === 'date') options.expires = options.expires.toUTCString ();
+      if (value === false)                              options.maxage  = 0;
 
-      if (cicek.cookie.secret && value) {
-         var hmac = crypto.createHmac ('sha256', cicek.cookie.secret);
+      if (cicek.options.cookieSecret && value) {
+         var hmac = crypto.createHmac ('sha256', cicek.options.cookieSecret);
          hmac.update (value);
          var signature = '.' + hmac.digest ('base64').replace (/=/g, '');
       }
@@ -137,15 +175,15 @@ Please refer to readme.md to read the annotated source.
          return teishi.v ([
             ['çiçek route', route, 'array'],
             function () {return [
-               [dale.stopOnNot (route [0], true, function (v) {
-                  return teishi.t (v) === 'string';
+               [dale.stopNot (route [0], true, function (v) {
+                  return type (v) === 'string';
                }) || false, [
                   ['çiçek route length', route.length, {min: 3}, teishi.test.range],
                   ['çiçek route method', route [0], ['string', 'array'], 'oneOf'],
-                  [teishi.t (route [0]) === 'string', [
+                  [type (route [0]) === 'string', [
                      ['çiçek route method', route [0], cicek.http.methods.concat (['all']), 'oneOf', teishi.test.equal],
                   ]],
-                  [teishi.t (route [0]) === 'array', [
+                  [type (route [0]) === 'array', [
                      ['çiçek route method', route [0], cicek.http.methods, 'eachOf', teishi.test.equal],
                   ]],
                   ['çiçek route path', route [1], ['regex', 'string'], 'eachOf'],
@@ -159,14 +197,14 @@ Please refer to readme.md to read the annotated source.
 
          if (validate (route) === false) return false;
 
-         if (dale.stopOnNot (route [0], true, function (v) {
-            return teishi.t (v) === 'string';
+         if (dale.stopNot (route [0], true, function (v) {
+            return type (v) === 'string';
          })) {
             return dale.do (route [1], function (v2) {
                routes.push ([route [0]].concat ([v2]).concat (route.slice (2)));
             });
          }
-         if (dale.stopOn (route, false, function (v) {
+         if (dale.stop (route, false, function (v) {
             return flatten (v);
          }) === false) return false;
       }
@@ -178,9 +216,9 @@ Please refer to readme.md to read the annotated source.
       // slash, colon, 1 or more chars that aren't parenthesis nor slash
       var matchParameter   = /\/:[^()/]+/g;
 
-      var invalidRoute = dale.stopOnNot (routes, undefined, function (route, index) {
+      var invalidRoute = dale.stopNot (routes, undefined, function (route, index) {
          var path = route [1];
-         if (teishi.t (path) === 'regex') return;
+         if (type (path) === 'regex') return;
          var regex;
          if (path [0] !== '/') path = '/' + path;
          if (path.length > 1 && path [path.length - 1] === '/' && path [path.length - 2] !== '\\') path = path.slice (0, -1);
@@ -207,30 +245,34 @@ Please refer to readme.md to read the annotated source.
          captures = dale.do (captures, function (v) {return v [1]});
          routes [index] [1] = captures ? [regex, captures] : regex;
       });
-      if (invalidRoute) return teishi.l ('Error', 'Invalid route path', invalidRoute);
+      if (invalidRoute) return cicek.out ({error: ['Invalid route path', invalidRoute]});
       return routes;
    }
 
    cicek.listen = function () {
       var arg = 0;
       var port = arguments [arg++];
-      var options = teishi.t (arguments [arg]) === 'object' ? arguments [arg++] : {};
+      var options = type (arguments [arg]) === 'object' ? arguments [arg++] : {};
       var routes = arguments [arg];
 
-      if (teishi.stop ('çiçek listen', [
+      if (stop ('çiçek listen', [
          ['port', port, 'integer'],
          ['port', port, {min: 1, max: 65535}, teishi.test.range],
-         ['options keys', dale.keys (options), ['cookieSecret', 'noColors', 'fileCallback', 'https', 'beforeStart', 'afterStart'], 'eachOf', teishi.test.equal],
-         ['options.cookieSecret', options.cookieSecret, ['string', 'undefined'],   'oneOf'],
-         ['options.noColors',     options.noColors,     ['boolean', 'undefined'],  'oneOf'],
+         ['options keys', dale.keys (options), ['cookieSecret', 'fileCallback', 'https', 'beforeStart', 'afterStart', 'console', 'log', 'bodyLogLimit', 'cluster'], 'eachOf', teishi.test.equal],
+         ['options.cookieSecret', options.cookieSecret, ['string',   'undefined'], 'oneOf'],
          ['options.fileCallback', options.fileCallback, ['function', 'undefined'], 'oneOf'],
-         ['options.https',        options.https,        ['object', 'undefined'],   'oneOf'],
+         ['options.https',        options.https,        ['object',   'undefined'], 'oneOf'],
          ['options.beforeStart',  options.beforeStart,  ['function', 'undefined'], 'oneOf'],
          ['options.afterStart',   options.afterStart,   ['function', 'undefined'], 'oneOf'],
+         ['options.console',      options.console,      ['function', 'boolean', 'undefined'], 'oneOf'],
+         ['options.log',          options.log,          ['string', 'function', 'undefined'],  'oneOf'],
+         ['options.bodyLogLimit', options.bodyLogLimit, ['integer',  'undefined'], 'oneOf'],
+         ['options.cluster',      options.cluster,      ['integer',  'undefined'], 'oneOf'],
+         [options.cluster !== undefined, ['options.cluster', options.cluster, {min: 1, max: os.cpus ().length}, teishi.test.range]],
          [options.https !== undefined, [function () {return [
             ['options.https.key',  options.https.key,  'string'],
             ['options.https.cert', options.https.cert, 'string'],
-            ['options.https.only', options.https.only, ['undefined', 'boolean'], 'oneOf'],
+            ['options.https.only', options.https.only, ['boolean', 'undefined'], 'oneOf'],
             [! options.https.only, [
                ['options.https.port', options.https.port, {min: 1, max: 65535}, teishi.test.range],
                ['options.https.port', options.https.port, port, teishi.test.notEqual]
@@ -238,42 +280,61 @@ Please refer to readme.md to read the annotated source.
          ]}]]
       ])) return false;
 
-      if (options.fileCallback) cicek.fileCallback = options.fileCallback;
+      if (options.fileCallback) cicek.options.fileCallback = options.fileCallback;
 
-      if (options.cookieSecret) cicek.cookie.secret = options.cookieSecret;
-      if (options.noColors) {
-         teishi.lno ();
-         cicek.noColors = true;
-      }
+      if (options.cookieSecret) cicek.options.cookieSecret = options.cookieSecret;
+
+      if (options.bodyLogLimit) cicek.options.bodyLogLimit = options.bodyLogLimit;
+
+      cicek.options.console = options.console;
+      cicek.options.log     = options.log;
+
+      if (options.cluster === undefined) options.cluster = os.cpus ().length;
 
       routes = cicek.parser (routes);
 
       if (routes === false) return false;
-
       options.beforeStart = options.beforeStart || function (callback) {return callback ()};
       options.afterStart  = options.afterStart  || function () {
-         if (! options.https || ! options.https.only) teishi.l ('Çiçek', 'listening in port', port);
-         if (options.https) teishi.l ('Çiçek', 'listening in port', options.https.only ? port : options.https.port);
+         if (! options.https || ! options.https.only) cicek.out (['Çiçek', 'listening in port', port, 'on ' + options.cluster + ' core' + (options.cluster > 1 ? 's' : '')]);
+         if (options.https) cicek.out (['Çiçek', 'listening in port', options.https.only ? port : options.https.port, 'on ' + options.cluster + ' core' + (options.cluster > 1 ? 's' : '')]);
       }
 
-      options.beforeStart (function () {
+      if (cluster.isMaster) {
+         options.beforeStart (function () {
+            var toStart = options.cluster;
+            toStart2 = toStart;
+            while (toStart-- > 0) {
+               var worker = cluster.fork ();
+               worker.on ('message', function (message) {
+                  if (--toStart2 === 0) options.afterStart ();
+               });
+            }
 
+            cluster.on ('exit', function (worker, code, signal) {
+               cicek.out ({error: ['Worker died', {worker: worker, code: code, signal: signal}]});
+            });
+         });
+      }
+      else {
          var httpServer, httpsServer;
 
          if (options.https === undefined || ! options.https.only) {
             httpServer = http.createServer (function (request, response) {
                cicek.avant (request, response, routes);
-            }).listen (port, options.afterStart);
+            }).listen (port, function () {
+               process.send ({ok: true});
+            });
          }
 
          if (options.https) {
             httpsServer = https.createServer ({key: fs.readFileSync (options.https.key, 'utf8'), cert: fs.readFileSync (options.https.cert, 'utf8')}, function (request, response) {
                cicek.avant (request, response, routes);
-            }).listen (options.https.only ? port : options.https.port, options.afterStart);
+            }).listen (options.https.only ? port : options.https.port, function () {
+               process.send ({ok: true});
+            });
          }
-
-         return options.https ? {http: httpServer, https: httpsServer} : httpServer;
-      });
+      }
    }
 
    // *** THE OUTER LOOP ***
@@ -286,7 +347,7 @@ Please refer to readme.md to read the annotated source.
       request.data = {};
 
       response.log = {
-         n: ++requestNumber,
+         number: ++requestNumber,
          start: teishi.time ()
       }
 
@@ -308,6 +369,8 @@ Please refer to readme.md to read the annotated source.
       }
       if (request.data.query === undefined) delete request.data.query;
 
+      cicek.out ({request: {number: response.log.number, origin: request.origin, method: request.method, url: request.url, headers: request.headers}});
+
       cicek.router (request, response, routes);
    }
 
@@ -318,14 +381,14 @@ Please refer to readme.md to read the annotated source.
       })) return false;
 
       var allowedMethods = [];
-      if (dale.stopOnNot (routes, undefined, function (v, k) {
+      if (dale.stopNot (routes, undefined, function (v, k) {
          if (response.offset !== undefined && k <= response.offset) return;
-         var captures = teishi.t (v [1]) === 'regex' ? undefined : v [1] [1];
+         var captures = type (v [1]) === 'regex' ? undefined : v [1] [1];
          var regex    = captures ? v [1] [0] : v [1];
          var match = request.url.match (regex);
          if (match === null) return;
 
-         if (v [0] === 'all' || dale.stopOn (v [0], true, function (v2) {
+         if (v [0] === 'all' || dale.stop (v [0], true, function (v2) {
             return v2 === request.method;
          })) {
             if (captures) {
@@ -369,7 +432,9 @@ Please refer to readme.md to read the annotated source.
    }
 
    cicek.fork = function (request, response, route) {
-      if (request.headers.cookie) request.data.cookie = cicek.cookie.read (request.headers.cookie);
+      if (request.headers.cookie) {
+         request.data.cookie = cicek.cookie.read (request.headers.cookie);
+      }
 
       if (request.headers ['content-type'] && request.headers ['content-type'].match (/multipart\/form-data/i)) return cicek.receiveMulti (request, response, route);
       cicek.receive (request, response, route);
@@ -379,9 +444,9 @@ Please refer to readme.md to read the annotated source.
       if (response.request.data.files) {
          dale.do (response.request.data.files, function (v) {
             fs.stat (v, function (error, stat) {
-               if (error && error.code !== 'ENOENT') return log ('There was an error when trying to delete the file at path', v);
+               if (error && error.code !== 'ENOENT') return cicek.out ({error: 'There was an error when trying to delete the file at path ' + v});
                if (! error) fs.unlink (v, function (error) {
-                  if (error) log ('There was an error when trying to delete the file at path', v);
+                  if (error) cicek.out ({error: 'There was an error when trying to delete the file at path ' + v});
                });
             });
          });
@@ -393,7 +458,7 @@ Please refer to readme.md to read the annotated source.
       response.log.end            = teishi.time ();
       response.log.duration       = response.log.end - response.log.start;
 
-      log ('Response #' + response.log.n + ' (' + response.log.duration + 'ms)', response.log.method.toUpperCase (), response.log.url, (cicek.noColors ? '' : '\033[37m\033[4' + {1: 6, 2: 2, 3: 4, 4: 3, 5: 1} [(response.log.code + '') [0]] + 'm') + response.log.code + (cicek.noColors ? '' : '\033[0m\033[1m'), '"' + response.log.body.slice (0, 150) + (response.log.body.length > 150 ? '...' : '') + '"', response.log.responseHeaders);
+      cicek.out ({response: response.log});
    }
 
    // *** INPUT FUNCTIONS ***
@@ -466,7 +531,7 @@ Please refer to readme.md to read the annotated source.
          });
       }
 
-      busboy.on ('file', cicek.fileCallback || fileCallback);
+      busboy.on ('file', cicek.options.fileCallback || fileCallback);
 
       busboy.on ('finish', function () {
          route [2].apply (route [2], [request, response].concat (route.slice (3)));
@@ -478,15 +543,15 @@ Please refer to readme.md to read the annotated source.
    // *** OUTPUT FUNCTIONS ***
 
    cicek.reply = function () {
-      var argumentCount = 0;
-      if (arguments [0].writable === undefined) argumentCount++;
-      var response    = arguments [argumentCount++];
-      var code        = teishi.t (arguments [argumentCount]) === 'integer' ? arguments [argumentCount++] : 200;
-      var body        = arguments [argumentCount++];
-      var headers     = teishi.t (arguments [argumentCount]) === 'object'  ? arguments [argumentCount++] : {};
-      var contentType = teishi.t (arguments [argumentCount]) === 'string'  ? arguments [argumentCount]   : undefined;
+      var arg = 0;
+      if (arguments [0].writable === undefined) arg++;
+      var response    = arguments [arg++];
+      var code        = type (arguments [arg]) === 'integer' ? arguments [arg++] : 200;
+      var body        = arguments [arg++];
+      var headers     = type (arguments [arg]) === 'object'  ? arguments [arg++] : {};
+      var contentType = type (arguments [arg]) === 'string'  ? arguments [arg]   : undefined;
 
-      if (teishi.stop ('cicek.reply', [
+      if (stop ('cicek.reply', [
          ['response.connection', response.connection, undefined, teishi.test.notEqual],
          function () {return ['response.connection.writable', response.connection.writable, true, teishi.test.equal]},
          ['çiçek head HTTP status code', code, cicek.http.codes, 'oneOf', teishi.test.equal],
@@ -498,7 +563,7 @@ Please refer to readme.md to read the annotated source.
       })) return false;
 
       if (! body && body !== 0) body = '';
-      var bodyType = teishi.t (body);
+      var bodyType = type (body);
 
       if (bodyType === 'object' || bodyType === 'array') {
          var JSON = teishi.s (body);
@@ -552,15 +617,15 @@ Please refer to readme.md to read the annotated source.
 
    cicek.file = function () {
 
-      var argumentCount = 0;
-      var request  = arguments [0].writable === undefined              ? arguments [argumentCount++] : undefined;
-      var response = arguments [argumentCount++];
-      var file     = teishi.t (arguments [argumentCount]) === 'string' ? arguments [argumentCount++] : undefined;
-      var paths    = teishi.t (arguments [argumentCount]) === 'array'  ? arguments [argumentCount++] : [__dirname];
-      var headers  = arguments [argumentCount] === 'object'            ? arguments [argumentCount++] : {};
-      var dots     = arguments [argumentCount] === true                ? true                        : false;
+      var arg = 0;
+      var request  = arguments [0].writable === undefined ? arguments [arg++] : undefined;
+      var response = arguments [arg++];
+      var file     = type (arguments [arg]) === 'string'  ? arguments [arg++] : undefined;
+      var paths    = type (arguments [arg]) === 'array'   ? arguments [arg++] : [__dirname];
+      var headers  = arguments [arg] === 'object'         ? arguments [arg++] : {};
+      var dots     = arguments [arg] === true             ? true              : false;
 
-      if (teishi.stop ('cicek.file', [
+      if (stop ('cicek.file', [
          ['response.connection', response.connection, undefined, teishi.test.notEqual],
          function () {return ['response.connection.writable', response.connection.writable, true, teishi.test.equal]},
          ['çiçek head HTTP response header', dale.keys (headers), cicek.http.responseHeaders, 'eachOf', teishi.test.match],

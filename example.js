@@ -1,5 +1,5 @@
 /*
-çiçek - v2.0.1
+çiçek - v2.1.0
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -13,6 +13,7 @@ To run the example first run `node example` at the command prompt and then open 
    var isNode = typeof exports === 'object';
    var dale   = isNode ? require ('dale')   : window.dale;
    var teishi = isNode ? require ('teishi') : window.teishi;
+   var type   = teishi.t;
 
    if (isNode) {
 
@@ -53,7 +54,7 @@ To run the example first run `node example` at the command prompt and then open 
          });
       }
 
-      cicek.listen (8000, {cookieSecret: 'c0okies3cret'}, [
+      cicek.listen (8000, {log: 'cicek.log', cookieSecret: 'c0okies3cret'}, [
          ['all', '*', echo],
          ['get', '/', reply, dale.do (['https://code.jquery.com/jquery-2.1.4.js', 'files/dale.js', 'files/teishi.js', 'files/example.js'], function (v) {return '<script src="' + v + '"></script>'}).join (''), 'html'],
          ['get', 'files/(*)', cicek.file, ['.', 'node_modules/dale', 'node_modules/teishi/']],
@@ -139,12 +140,12 @@ To run the example first run `node example` at the command prompt and then open 
             }],
             ['Cookie set', 'get', 'cookieSet'],
             ['Check cookie and tamper it', 'get', '/param1/param2/param3', function (data) {
+               console.log (data.cookie.rat);
                if (data.cookie.rat !== 'salad') return false;
                document.cookie = ('rat=somesalad');
                return true;
             }],
             ['Check tampered cookie is ignored', 'get', '/param1/param2/param3', function (data) {
-               console.log (data.cookie.rat);
                return data.cookie.rat === undefined;
             }],
             ['Cookie delete', 'get', 'cookieDelete'],
@@ -163,11 +164,11 @@ To run the example first run `node example` at the command prompt and then open 
             var arg = 0;
             var tag     = next [arg++];
             var method  = next [arg++];
-            var headers = teishi.t (next [arg]) === 'object' ? next [arg++] : (teishi.t (next [arg]) === 'function' ? next [arg++] (state) : {});
+            var headers = type (next [arg]) === 'object'   ? next [arg++] : (type (next [arg]) === 'function' ? next [arg++] (state) : {});
             var url     = next [arg++];
-            var body    = (teishi.t (next [arg]) === 'string' || typeof next [arg] === 'object') ? next [arg++] : '';
-            var code    = teishi.t (next [arg]) === 'integer'  ? next [arg++] : 200;
-            var check   = teishi.t (next [arg]) === 'function' ? next [arg++] : undefined;
+            var body    = (type (next [arg]) === 'string' || typeof next [arg] === 'object') ? next [arg++] : '';
+            var code    = type (next [arg]) === 'integer'  ? next [arg++] : 200;
+            var check   = type (next [arg]) === 'function' ? next [arg++] : undefined;
 
             log ('Testing:', tag);
 
@@ -190,6 +191,7 @@ To run the example first run `node example` at the command prompt and then open 
                }
                if (tests.length > 0) return doTest ();
                log ('\n<b style="color: green">All tests were successful!</b>');
+               teishi.l ('done');
             });
          }
 

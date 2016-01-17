@@ -4,20 +4,20 @@
 
 çiçek is a web server. It is designed to be:
 
-1. Minimalistic: çiçek is ~640 lines of code and uses only four libraries:
+1. Minimalistic: çiçek is ~700 lines of code and uses only four libraries:
    * [busboy](https://github.com/mscdex/busboy), for multipart/form-data support.
    * [mime](https://github.com/broofa/node-mime), for guessing the MIME type of a file.
    * [dale](https://github.com/fpereiro/dale), for looping.
    * [teishi](https://github.com/fpereiro/teishi), for validation.
 2. Self-contained: çiçek provides useful functions and defaults that allow you to write the backend of your application with minimal configuration and no extra dependencies. Here's all the things that çiçek does out of the box:
-   * Parse received JSONs.
-   * Parse uploaded files.
+   * Parse incoming JSONs, files and query parameters.
    * Set content headers.
    * Serve files.
-   * Encrypt/decrypt cookies.
+   * Read/write cookies, with encryption support.
    * Compression.
-   * Log requests to the console.
+   * Print useful output to the console and write a logfile.
    * Validate request and response headers to make your application RFC compliant.
+   * Run the server on each of your cores using [cluster](https://nodejs.org/api/cluster.html).
 3. Modular: çiçek is composed of a few functions called in sequence - you can easily override or enhance these functions.
 
 çiçek borrows both terminology and patterns from [express](https://github.com/strongloop/express).
