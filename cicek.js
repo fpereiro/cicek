@@ -1,5 +1,5 @@
 /*
-çiçek - v2.1.0
+çiçek - v2.1.1
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -71,7 +71,7 @@ Please refer to readme.md to read the annotated source.
          message = message [what];
          var date = new Date ().toUTCString ();
          if      (what === 'request')  log (date + ' REQUEST #' + message.number, 'origin: ' + message.origin, message.method.toUpperCase (), message.url, message.headers);
-         else if (what === 'response') log (date + ' RESPONSE #' + message.number + ' (' + message.duration + 'ms)', message.method.toUpperCase (), message.url, '\033[37m\033[4' + {1: 6, 2: 2, 3: 4, 4: 3, 5: 1} [(message.code + '') [0]] + 'm' + message.code + '\033[0m\033[1m', '"' + message.body.slice (0, cicek.options.bodyLogLimit) + (message.body.length > cicek.options.bodyLogLimit ? '...' : '') + '"', message.responseHeaders);
+         else if (what === 'response') log (date + ' RESPONSE #' + message.number + ' (' + message.duration + 'ms)', message.method.toUpperCase (), message.url, '\033[37m\033[4' + {1: 6, 2: 2, 3: 4, 4: 3, 5: 1} [(message.code + '') [0]] + 'm' + message.code + '\033[0m\033[1m', message.path ? {path: message.path} : '"' + message.body.slice (0, cicek.options.bodyLogLimit) + (message.body.length > cicek.options.bodyLogLimit ? '...' : '') + '"', message.responseHeaders);
          else                          log (date + ' ' + what.toUpperCase (), message);
       }
       else log.apply (undefined, type (message) === 'array' ? message : [message]);
