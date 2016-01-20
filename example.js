@@ -1,5 +1,5 @@
 /*
-çiçek - v2.1.2
+çiçek - v2.1.3
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -56,8 +56,8 @@ To run the example first run `node example` at the command prompt and then open 
 
       cicek.listen (8000, {log: 'cicek.log', cookieSecret: 'c0okies3cret'}, [
          ['all', '*', echo],
-         ['get', '/', reply, dale.do (['https://code.jquery.com/jquery-2.1.4.js', 'files/dale.js', 'files/teishi.js', 'files/example.js'], function (v) {return '<script src="' + v + '"></script>'}).join (''), 'html'],
-         ['get', 'files/(*)', cicek.file, ['.', 'node_modules/dale', 'node_modules/teishi/']],
+         ['get', '/', reply, dale.do (['https://code.jquery.com/jquery-2.1.4.js', 'files/dale/dale.js', 'files/teishi/teishi.js', 'files/example.js'], function (v) {return '<script src="' + v + '"></script>'}).join (''), 'html'],
+         ['get', 'files/(*)', cicek.file, ['.', '..', 'node_modules']],
          ['get', ['therats/(*)', 'fileswithdots/(*)'], cicek.file, ['node_modules/dale', 'node_modules/teishi/'], true],
          ['get', [/regex\/capt(u+)re(s)?/i, 'string/capt(u+)re(s)?', '/:first/:second/:third'], echo],
          ['post', ['data', 'upload'], echo],
@@ -100,7 +100,7 @@ To run the example first run `node example` at the command prompt and then open 
          formData.append ('file', blob);
 
          var tests = [
-            ['Get a file from another directory', 'get', 'files/dale.js'],
+            ['Get a file from another directory', 'get', 'files/dale/dale.js'],
             ['Check that dots are not enabled by default in file serving', 'get', encodeURIComponent ('files/../id_rsa'), 400],
             ['Get file with dots in path where possible', 'get', encodeURIComponent ('fileswithdots/../../cicek.js'), 200, function (data, response) {
                state.etag = response.getResponseHeader ('etag');
