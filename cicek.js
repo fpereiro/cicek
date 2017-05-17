@@ -1,5 +1,5 @@
 /*
-çiçek - v3.0.0
+çiçek - v3.0.1
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -148,7 +148,8 @@ Please refer to readme.md to read the annotated source (but not yet!).
          message [3].url,
          '\033[37m\033[4' + {1: 6, 2: 2, 3: 4, 4: 3, 5: 1} [(message [3].code + '') [0]] + 'm' + message [3].code + '\033[0m\033[1m',
          message [3].body,
-         message [3].responseHeaders
+         message [3].responseHeaders,
+         message [3].path || ''
       ]);
 
       log.apply (null, message);
@@ -164,6 +165,10 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
          options.streamIn = new stream.PassThrough ();
          options.stream   = fs.createWriteStream (options.path, {flags: 'a'});
+         options.stream.on ('error', function (error) {
+            if (error) return cicek.log (['error', 'cicek.logfile init error', error.toString (), error.stack]);
+         });
+
          options.streamIn.pipe (options.stream);
 
          setInterval (function () {

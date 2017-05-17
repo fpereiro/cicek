@@ -27,7 +27,7 @@
 
 ## Current status of the project
 
-The current version of çiçek, v3.0.0, is considered to be *unstable* and *somewhat complete*. [Suggestions](https://github.com/fpereiro/cicek/issues) and [patches](https://github.com/fpereiro/cicek/pulls) are welcome. Future changes planned are:
+The current version of çiçek, v3.0.1, is considered to be *unstable* and *somewhat complete*. [Suggestions](https://github.com/fpereiro/cicek/issues) and [patches](https://github.com/fpereiro/cicek/pulls) are welcome. Future changes planned are:
 
 - Fix bug when exceptions are thrown in cluster mode.
 - Add an API reference.
