@@ -1,9 +1,9 @@
 /*
-çiçek - v2.1.3
+çiçek - v3.0.0
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
-To run the example first run `node example` at the command prompt and then open the url `localhost:8000` with your browser.
+To run the test first run `node test` at the command prompt and then open the url `localhost:8000` with your browser.
 */
 
 (function () {
@@ -17,28 +17,29 @@ To run the example first run `node example` at the command prompt and then open 
 
    if (isNode) {
 
-      var cicek  = isNode ? require ('./cicek.js') : undefined;
+      var cicek  = require ('./cicek.js');
       var log    = teishi.l;
       var reply  = cicek.reply;
       var fs     = require ('fs');
 
       var echo = function (request, response) {
 
-         if (response.offset === 0) {
-            cicek.out ('Passing through common route.');
+         if (response.echo === undefined) {
+            response.echo = true;
+            cicek.log ('Passing through common route.');
             return response.next ();
          }
 
          request.data.body = request.body;
 
-         if (request.data.files) {
+         if (dale.keys (request.data.files).length > 0) {
             fs.readFile (request.data.files [dale.keys (request.data.files) [0]], 'utf8', function (error, data) {
                if (error) return reply (response, 500, error);
                request.data.fileContent = data;
-               reply (response, 200, JSON.stringify (request.data, null, '   '), 'json');
+               reply (response, 200, JSON.stringify (request.data, null, '   '), {'content-encoding': request.data.query && request.data.query.compression ? false : undefined}, 'application/json');
             });
          }
-         else reply (response, 200, JSON.stringify (request.data, null, '   '), 'json');
+         else reply (response, 200, JSON.stringify (request.data, null, '   '), {'content-encoding': request.data.query && request.data.query.compression ? false : undefined}, 'application/json');
 
       }
 
@@ -54,19 +55,33 @@ To run the example first run `node example` at the command prompt and then open 
          });
       }
 
-      cicek.listen (8000, {log: 'cicek.log', cookieSecret: 'c0okies3cret'}, [
+      cicek.options.cookieSecret  = 'c0okies3cret';
+      //cicek.options.log.file.path = 'cicek.log';
+      //cicek.options.log.file.rotationSize = 0.1,
+      //cicek.options.log.file.rotationFreq = 0.1,
+      cicek.options.log.logBody   = true;
+      cicek.options.headers ['x-powered-by'] = 'cicek';
+
+      if (cicek.isMaster) return cicek.cluster ();
+
+      cicek.listen ({port: 8000}, [
          ['all', '*', echo],
-         ['get', '/', reply, dale.do (['https://code.jquery.com/jquery-2.1.4.js', 'files/dale/dale.js', 'files/teishi/teishi.js', 'files/example.js'], function (v) {return '<script src="' + v + '"></script>'}).join (''), 'html'],
+         ['get', [], echo],
+         ['get', '/', reply, dale.do (['https://code.jquery.com/jquery-2.1.4.js', 'files/dale/dale.js', 'files/teishi/teishi.js', 'files/test.js'], function (v) {return '<script src="' + v + '"></script>'}).join (''), 'html'],
          ['get', 'files/(*)', cicek.file, ['.', '..', 'node_modules']],
          ['get', ['therats/(*)', 'fileswithdots/(*)'], cicek.file, ['node_modules/dale', 'node_modules/teishi/'], true],
          ['get', [/regex\/capt(u+)re(s)?/i, 'string/capt(u+)re(s)?', '/:first/:second/:third'], echo],
+         ['get', '(a|b)', echo],
          ['post', ['data', 'upload'], echo],
          ['get', 'upload', reply, '<html><form action="upload" method="post" enctype="multipart/form-data"><input name="field1" value="field1"><input name="field2" value="field2"><input type="file" name="file1"><input type="file" name="file2"><input type="submit" value="Upload file"></form></html>', 'html'],
          ['get', 'data', reply, '<html><form action="data" method="post"><input name="field1" value="field1"><input name="field2" value="field2"><input type="submit" value="Send data"></form></html>', 'html'],
          [
             ['get', 'cookieSet', cookieSet],
             ['get', 'cookieDelete', cookieDelete]
-         ]
+         ],
+         ['get', 'error', function (request, response) {
+            throw new Error ('ERROR!');
+         }]
       ]);
    }
 
@@ -99,7 +114,15 @@ To run the example first run `node example` at the command prompt and then open 
 
          formData.append ('file', blob);
 
+         var formEmpty = new FormData ();
+
+         var formHack = new FormData ();
+         var blob2 = new Blob ([content], {type: 'application/json'});
+         formHack.append ('file', blob2, '/..');
+
          var tests = [
+            // XXX Make this work
+            //['Check no crash on error', 'get', 'error', 0],
             ['Get a file from another directory', 'get', 'files/dale/dale.js'],
             ['Check that dots are not enabled by default in file serving', 'get', encodeURIComponent ('files/../id_rsa'), 400],
             ['Get file with dots in path where possible', 'get', encodeURIComponent ('fileswithdots/../../cicek.js'), 200, function (data, response) {
@@ -107,17 +130,19 @@ To run the example first run `node example` at the command prompt and then open 
                return true;
             }],
             ['Check etags for files', 'get', function (state) {return {'if-none-match': state.etag}}, encodeURIComponent ('fileswithdots/../../cicek.js'), 304],
-            ['Invalid headers', 'get', {'noncompliant': 'header'}, 'anypath', 400],
             ['No such path', 'get', 'anypath', 404],
             ['Try other method for that path', 'put', 'files/dale.js', 405],
             ['Invalid json', 'post', {'content-type': 'application/json'}, 'data', 400],
-            ['Valid json', 'post', {'content-type': 'application/json'}, 'data', '{"much": "data"}', 200, function (data) {
-               // This problem only affects Firefox
-               if (typeof data.body === 'string') data.body = JSON.parse (data.body);
-
+            ['Valid json', 'post', {'content-type': 'application/json'}, 'data', '{"much": "data"}', 200, function (data, response) {
+               return data && data.body && data.body.much === 'data';
+            }],
+            ['Valid json without compression', 'post', {'content-type': 'application/json'}, 'data?compression=none', '{"much": "data"}', 200, function (data, response) {
                return data && data.body && data.body.much === 'data';
             }],
             ['Invalid url', 'post', 'data%', '---', 400],
+            ['Check default headers', 'get', '/param1/param2/param3', function (data, response) {
+               return response.getResponseHeader ('x-powered-by') === 'cicek';
+            }],
             ['Check url parameters', 'get', '/param1/param2/param3', function (data, response) {
                state.etag = response.getResponseHeader ('etag');
                return data.params.first === 'param1' && data.params.second === 'param2' && data.params.third === 'param3';
@@ -138,10 +163,16 @@ To run the example first run `node example` at the command prompt and then open 
             ['Check url regex captures (2)', 'get', 'regex/captuuure', function (data) {
                return data.params ['0'] === 'uuu' && data.params ['1'] === undefined;
             }],
+            ['Check url alternation (1)', 'get', 'a', function (data) {
+               return data.params ['0'] === 'a';
+            }],
+            ['Check url alternation (2)', 'get', 'b', function (data) {
+               return data.params ['0'] === 'b';
+            }],
             ['Cookie set', 'get', 'cookieSet'],
             ['Check cookie and tamper it', 'get', '/param1/param2/param3', function (data) {
                if (data.cookie.rat !== 'salad') return false;
-               document.cookie = ('rat=somesalad');
+               document.cookie = 'rat=somesalad';
                return true;
             }],
             ['Check tampered cookie is ignored', 'get', '/param1/param2/param3', function (data) {
@@ -153,7 +184,13 @@ To run the example first run `node example` at the command prompt and then open 
             }],
             ['Upload file', 'post', 'upload', formData, function (data) {
                return data.fields.field === 'some data' && data.files.file && data.fileContent === content;
-            }]
+            }],
+            ['Upload empty form', 'post', 'upload', formEmpty, function (data) {
+               return Object.keys (data.fields).length === 0;
+            }],
+            ['Upload file to root', 'post', 'upload', formHack, function (data) {
+               return data.files.file && data.fileContent === content;
+            }],
          ]
 
          var doTest = function () {
