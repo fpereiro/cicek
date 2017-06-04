@@ -13,21 +13,20 @@
    * Parse incoming query parameters, JSONs, and multipart/form-data (files).
    * Set content headers.
    * Serve data & files.
-   * Serve files.
-   * Reads/writes cookies (and signs them).
+   * Reads/writes cookies (and cryptographically signs/verifies them).
    * Cache with etags.
    * Compression.
    * Print useful output to the console.
    * Run the server on each of your cores using [cluster](https://nodejs.org/api/cluster.html).
    * Restarting the processes if one fails.
    * Writing logs with JSON format and automatic log rotation and compression.
-3. Universal: çiçek tries to express the universal patterns of a web server in the simplest way that will be practical. I hope that çiçek will let you understand what an HTTP(S) server written on nodejs is doing, and maybe even encourage you to write your own.
+3. Universal: çiçek tries to express the universal patterns of a web server in the simplest way that will be practical. I hope that çiçek will let you understand what an HTTP(S) server written on node.js is doing, and maybe even encourage you to [write your own](http://www.federicopereiro.com/write/).
 
 çiçek borrows both terminology and patterns from [express](https://github.com/strongloop/express).
 
 ## Current status of the project
 
-The current version of çiçek, v3.0.1, is considered to be *unstable* and *somewhat complete*. [Suggestions](https://github.com/fpereiro/cicek/issues) and [patches](https://github.com/fpereiro/cicek/pulls) are welcome. Future changes planned are:
+The current version of çiçek, v3.1.0, is considered to be *unstable* and *somewhat complete*. [Suggestions](https://github.com/fpereiro/cicek/issues) and [patches](https://github.com/fpereiro/cicek/pulls) are welcome. Future changes planned are:
 
 - Fix bug when exceptions are thrown in cluster mode.
 - Add an API reference.

@@ -1,5 +1,5 @@
 /*
-çiçek - v3.0.1
+çiçek - v3.1.0
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -218,6 +218,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
       var output = {};
 
       dale.do (cookieString.split (/;\s+/), function (v) {
+         if (! v) return;
          v = v.split ('=');
          var name = v [0];
          var value = v.slice (1).join ('=').slice (1, -1);
@@ -409,7 +410,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
    // *** THE OUTER LOOP ***
 
-   cicek.avant = function (request, response, routes) {
+   cicek.Avant = function (request, response, routes) {
 
       request.data     = {};
       request.method   = request.method.toLowerCase ();
@@ -438,13 +439,13 @@ Please refer to readme.md to read the annotated source (but not yet!).
          try {
             request.data.query = query.parse (request.url.match (/\?[^#]+/g) [0].slice (1));
             request.url = request.url.replace (/\?[^#]+/g, '');
+            response.log.rawurl = response.log.url;
+            response.log.url    = request.url;
          }
          catch (error) {
             return cicek.reply (response, 400, 'Invalid query string: ' + request.data.query);
          }
       }
-
-      response.log.url = request.url;
 
       if (request.headers.cookie) request.data.cookie = cicek.cookie.read (request.headers.cookie);
 
@@ -452,6 +453,8 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
       cicek.router (request, response, routes);
    }
+
+   cicek.avant = cicek.Avant;
 
    cicek.router = function (request, response, routes, offset) {
 
@@ -506,7 +509,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
       next (request, response, route);
    }
 
-   cicek.apres = function (response) {
+   cicek.Apres = function (response) {
       dale.do (response.request.data.files, function (v) {
          fs.stat (v, function (error, stat) {
             if (error && error.code !== 'ENOENT') return cicek.log (['error', 'temp file deletion error 1', v]);
@@ -521,7 +524,16 @@ Please refer to readme.md to read the annotated source (but not yet!).
       cicek.log (['response', response.log]);
    }
 
+   cicek.apres = cicek.Apres;
+
    // *** INPUT FUNCTIONS ***
+
+   cicek.json = function (fun) {
+      return function (request, response) {
+         if (type (request.body) !== 'object') return reply (response, 400, {error: 'Must submit a JSON body.'});
+         else fun.apply (null, arguments);
+      }
+   }
 
    cicek.receive = function (request, response, route) {
 
