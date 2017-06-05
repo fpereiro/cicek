@@ -1,5 +1,5 @@
 /*
-çiçek - v3.1.0
+çiçek - v3.1.1
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -511,10 +511,12 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
    cicek.Apres = function (response) {
       dale.do (response.request.data.files, function (v) {
-         fs.stat (v, function (error, stat) {
-            if (error && error.code !== 'ENOENT') return cicek.log (['error', 'temp file deletion error 1', v]);
-            if (! error) fs.unlink (v, function (error) {
-               if (error) cicek.log (['error', 'temp file deletion error 2', v]);
+         dale.do (v, function (v2) {
+            fs.stat (v2, function (error, stat) {
+               if (error && error.code !== 'ENOENT') return cicek.log (['error', 'temp file deletion error 1', v2]);
+               if (! error) fs.unlink (v2, function (error) {
+                  if (error) cicek.log (['error', 'temp file deletion error 2', v2]);
+               });
             });
          });
       });
@@ -606,9 +608,11 @@ Please refer to readme.md to read the annotated source (but not yet!).
       busboy.on ('file', function (field, file, value, encoding, mimetype) {
 
          files++;
-         request.data.files [field] = path.join ((os.tmpdir || os.tmpDir) (), cicek.pseudorandom (24) + '_' + value);
+         var filename = path.join ((os.tmpdir || os.tmpDir) (), cicek.pseudorandom (24) + '_' + value);
+         if (request.data.files [field]) request.data.files [field] = [request.data.files [field], filename];
+         else                            request.data.files [field] = filename;
 
-         var save = fs.createWriteStream (request.data.files [field]);
+         var save = fs.createWriteStream (filename);
 
          save.on ('finish', function () {
             if (--files === 0 && ! Error && Finish) route [2].apply (route [2], [request, response].concat (route.slice (3)));

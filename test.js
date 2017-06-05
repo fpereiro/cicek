@@ -1,5 +1,5 @@
 /*
-çiçek - v3.1.0
+çiçek - v3.1.1
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -33,7 +33,9 @@ To run the test first run `node test` at the command prompt and then open the ur
          request.data.body = request.body;
 
          if (dale.keys (request.data.files).length > 0) {
-            fs.readFile (request.data.files [dale.keys (request.data.files) [0]], 'utf8', function (error, data) {
+            var onefile = request.data.files [dale.keys (request.data.files) [0]];
+            if (type (onefile) === 'array') onefile = onefile [0];
+            fs.readFile (onefile, 'utf8', function (error, data) {
                if (error) return reply (response, 500, error);
                request.data.fileContent = data;
                reply (response, 200, JSON.stringify (request.data, null, '   '), {'content-encoding': request.data.query && request.data.query.compression ? false : undefined}, 'application/json');
@@ -120,6 +122,12 @@ To run the test first run `node test` at the command prompt and then open the ur
          var blob2 = new Blob ([content], {type: 'application/json'});
          formHack.append ('file', blob2, '/..');
 
+         var formMultiple = new FormData ();
+         var blob3 = new Blob ([content], {type: 'application/json'});
+         var blob4 = new Blob ([content], {type: 'application/json'});
+         formMultiple.append ('file', blob3);
+         formMultiple.append ('file', blob4);
+
          var tests = [
             // XXX Make this work
             //['Check no crash on error', 'get', 'error', 0],
@@ -190,6 +198,11 @@ To run the test first run `node test` at the command prompt and then open the ur
             }],
             ['Upload file to root', 'post', 'upload', formHack, function (data) {
                return data.files.file && data.fileContent === content;
+            }],
+            ['Upload multiple files', 'post', 'upload', formMultiple, function (data) {
+               if (data.fileContent !== content) return false;
+               if (! data.files || type (data.files.file) !== 'array' || data.files.file.length !== 2) return false;
+               return true;
             }],
          ]
 
