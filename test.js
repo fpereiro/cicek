@@ -66,7 +66,7 @@ To run the test first run `node test` at the command prompt and then open the ur
       }
       cicek.options.headers ['x-powered-by'] = 'cicek';
 
-      //cicek.cluster ();
+      cicek.cluster ();
 
       cicek.listen ({port: 8000}, [
          ['all', '*', echo],
