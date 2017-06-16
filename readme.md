@@ -26,7 +26,7 @@
 
 ## Current status of the project
 
-The current version of çiçek, v3.1.1, is considered to be *unstable* and *somewhat complete*. [Suggestions](https://github.com/fpereiro/cicek/issues) and [patches](https://github.com/fpereiro/cicek/pulls) are welcome. Future changes planned are:
+The current version of çiçek, v3.2.0, is considered to be *unstable* and *somewhat complete*. [Suggestions](https://github.com/fpereiro/cicek/issues) and [patches](https://github.com/fpereiro/cicek/pulls) are welcome. Future changes planned are:
 
 - Fix bug when exceptions are thrown in cluster mode.
 - Add an API reference.
@@ -47,7 +47,7 @@ To use çiçek, you need node.js v0.8.0 or newer.
 
 ## Source code
 
-The complete source code is contained in `cicek.js`. It is about 790 lines long.
+The complete source code is contained in `cicek.js`. It is about 830 lines long.
 
 Annotated source code will be forthcoming when the library stabilizes.
 

@@ -1,5 +1,5 @@
 /*
-çiçek - v3.1.1
+çiçek - v3.2.0
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -44,7 +44,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
       headers: {},
       cookieSecret: null,
       log: {
-         logBody: false,
+         body: false,
          console: true,
          file: {
             path: null,
@@ -66,7 +66,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
    cicek.stop = function (fun, rules) {
       return teishi.stop (fun, rules, function (error) {
-         cicek.log (['error', error]);
+         cicek.log (['error', 'server error', error]);
       });
    }
 
@@ -89,7 +89,12 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
    cicek.cluster = function (cpus, onerror) {
 
-      if (! cicek.isMaster) return;
+      if (! cicek.isMaster) return process.on ('uncaughtException', function (error) {
+         cicek.log (['error', 'worker error', {error: error.toString (), stack: error.stack}]);
+         process.exit (1);
+      });
+
+      cicek.options.cluster = true;
 
       if (cpus === undefined) cpus = os.cpus ().length;
       if (cicek.stop ('cicek.cluster', [
@@ -110,7 +115,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
       dale.do (dale.times (cpus), spawn);
 
       cluster.on ('exit', function (worker, code, signal) {
-         cicek.log (['error', 'cluster error: worker died', {workerId: worker.id, code: code, signal: signal}]);
+         cicek.log (['error', 'worker died', {workerId: worker.id, code: code, signal: signal}]);
          onerror ? onerror (worker, code, signal) : spawn ()
       });
 
@@ -128,36 +133,53 @@ Please refer to readme.md to read the annotated source (but not yet!).
       }
 
       if (cicek.options.log.console) cicek.logconsole (message);
-      if (cicek.options.log.file)    cicek.logfile    (message);
+      if (cicek.options.log.file) cicek.logfile (message);
    }
 
    cicek.logconsole = function (message) {
 
-      if (! cicek.isMaster) return;
+      if (! cicek.isMaster && message [2] !== 'requestContent') return;
 
-      if (message [2] === 'request') message = [message.slice (0, 2).concat ('REQUEST:' + message [3].id).join (' ')].concat ([
-         'origin: ' + message [3].origin,
-         message [3].method.toUpperCase (),
-         message [3].url,
-         message [3].headers,
-         message [3].data
-      ]);
+      if (message [2] === 'request') message = [[' REQUEST ' + message [3].id, message [3].method.toUpperCase (), message [3].url].join (' ')].concat ([message [3].origin, 'REQ-HEADERS:', message [3].requestHeaders]).concat (dale.keys (message [3].data).length === 0 ? [] : ['REQ-DATA:', message [3].data]);
 
-      else if (message [2] === 'response') message = [message.slice (0, 2).concat ('RESPONSE:' + message [3].id + ' (' + message [3].duration + 'ms)').join (' ')].concat ([
-         message [3].method.toUpperCase (),
-         message [3].url,
+      else if (message [2] === 'requestContent') {
+         var logBody = type (cicek.options.log.body) === 'function' ? cicek.options.log.body (message [3]) : cicek.options.log.body;
+         if (! logBody) return;
+
+         if (message [3].requestBody) message = [[' REQ-BODY ' + message [3].id, message [3].method.toUpperCase (), message [3].url].join (' ')].concat (['REQ-BODY', message [3].requestBody]);
+         else if (message [3].data && (message [3].data.fields || message [3].data.files))
+            message = [[' REQ-FORM ' + message [3].id, message [3].method.toUpperCase (), message [3].url].join (' ')].concat (['REQ-FORM', {fields: message [3].data.fields, files: message [3].data.files}])
+         else return;
+      }
+
+      else if (message [2] === 'response') message = [['RESPONSE ' + message [3].id, message [3].method.toUpperCase (), message [3].url].join (' ')].concat ([
          '\033[37m\033[4' + {1: 6, 2: 2, 3: 4, 4: 3, 5: 1} [(message [3].code + '') [0]] + 'm' + message [3].code + '\033[0m\033[1m',
-         message [3].body,
-         message [3].responseHeaders,
-         message [3].path || ''
+         '(' + message [3].duration + 'ms)',
+         'RES-HEADERS:', message [3].responseHeaders,
+         message [3].responseBody ? 'RES-BODY:' : '',
+         message [3].responseBody ? message [3].responseBody : '',
+         message [3].path ? 'RES-PATH: ' + message [3].path : ''
       ]);
 
+      console.log ('-----------');
       log.apply (null, message);
    }
 
    cicek.logfile = function (message) {
 
-      if (! cicek.isMaster) return process.send (JSON.stringify (message));
+      if (! cicek.isMaster) {
+         if (message [2] === 'requestContent') return;
+         if (message [2] === 'response') {
+            var logBody = type (cicek.options.log.body) === 'function' ? cicek.options.log.body (message [3]) : cicek.options.log.body;
+            if (! logBody && message [3].data) {
+               delete message [3].data.fields;
+               delete message [3].data.files;
+               delete message [3].requestBody;
+               delete message [3].responseBody;
+            }
+         }
+         return process.send (JSON.stringify (message));
+      }
 
       var options = cicek.options.log.file;
 
@@ -369,6 +391,8 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
    cicek.listen = function (options, routes, cb) {
 
+      if (cicek.options.cluster && cicek.isMaster) return;
+
       if (cicek.stop ('çiçek listen', [
          ['options', options, 'object'],
          function () {return [
@@ -412,23 +436,24 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
    cicek.Avant = function (request, response, routes) {
 
+      response.request = request;
+
       request.data     = {};
       request.method   = request.method.toLowerCase ();
-      response.request = request;
+      request.origin   = request.headers ['x-forwarded-for'] || request.connection.remoteAddress;
+
       response.log = {
          startTime:      teishi.time (),
          id:             cicek.pseudorandom (),
          origin:         request.origin,
          method:         request.method,
-         requestHeaders: request.headers,
          url:            request.url,
+         requestHeaders: request.headers,
          data:           request.data
       }
 
-      request.origin = request.headers ['x-forwarded-for'] || request.connection.remoteAddress;
-
       try {
-         request.url = decodeURIComponent (request.url);
+         response.log.url = request.url = decodeURIComponent (request.url);
       }
       catch (error) {
          return cicek.reply (response, 400, 'Invalid URL: ' + request.url);
@@ -438,9 +463,8 @@ Please refer to readme.md to read the annotated source (but not yet!).
       if (request.url.match (/\?/)) {
          try {
             request.data.query = query.parse (request.url.match (/\?[^#]+/g) [0].slice (1));
-            request.url = request.url.replace (/\?[^#]+/g, '');
-            response.log.rawurl = response.log.url;
-            response.log.url    = request.url;
+            response.log.rawurl = request.rawurl = request.url;
+            response.log.url    = request.url    = request.url.replace (/\?[^#]+/g, '');
          }
          catch (error) {
             return cicek.reply (response, 400, 'Invalid query string: ' + request.data.query);
@@ -449,7 +473,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
       if (request.headers.cookie) request.data.cookie = cicek.cookie.read (request.headers.cookie);
 
-      cicek.log (['request', {startTime: response.log.startTime, id: response.log.id, origin: request.origin, method: request.method, url: request.url, headers: request.headers, data: request.data}]);
+      cicek.log (['request', response.log]);
 
       cicek.router (request, response, routes);
    }
@@ -532,7 +556,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
    cicek.json = function (fun) {
       return function (request, response) {
-         if (type (request.body) !== 'object') return reply (response, 400, {error: 'Must submit a JSON body.'});
+         if (type (request.body) !== 'object') return cicek.reply (response, 400, {error: 'Must submit a JSON body.'});
          else fun.apply (null, arguments);
       }
    }
@@ -568,6 +592,8 @@ Please refer to readme.md to read the annotated source (but not yet!).
          }
          if (parsed) request.body = parsed;
 
+         response.log.requestBody = request.body;
+         cicek.log (['requestContent', response.log]);
          route [2].apply (route [2], [request, response].concat (route.slice (3)));
       });
 
@@ -609,13 +635,19 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
          files++;
          var filename = path.join ((os.tmpdir || os.tmpDir) (), cicek.pseudorandom (24) + '_' + value);
-         if (request.data.files [field]) request.data.files [field] = [request.data.files [field], filename];
-         else                            request.data.files [field] = filename;
+         if (request.data.files [field]) {
+            if (type (request.data.files [field]) === 'string') request.data.files [field] = [request.data.files [field], filename];
+            else                                                request.data.files [field].push (filename);
+         }
+         else request.data.files [field] = filename;
 
          var save = fs.createWriteStream (filename);
 
          save.on ('finish', function () {
-            if (--files === 0 && ! Error && Finish) route [2].apply (route [2], [request, response].concat (route.slice (3)));
+            if (--files === 0 && ! Error && Finish) {
+               cicek.log (['requestContent', response.log]);
+               route [2].apply (route [2], [request, response].concat (route.slice (3)));
+            }
          });
 
          save.on ('error', errorCb ('çiçek FS error', 500));
@@ -625,7 +657,10 @@ Please refer to readme.md to read the annotated source (but not yet!).
       });
 
       busboy.on ('finish', function () {
-         if (files === 0 && ! Error && ! Finish) route [2].apply (route [2], [request, response].concat (route.slice (3)));
+         if (files === 0 && ! Error && ! Finish) {
+            cicek.log (['requestContent', response.log]);
+            route [2].apply (route [2], [request, response].concat (route.slice (3)));
+         }
          Finish = true;
       });
 
@@ -678,8 +713,8 @@ Please refer to readme.md to read the annotated source (but not yet!).
          if (cached) code = 304;
          body = cached ? '' : compressed;
          response.log.code            = code;
-         response.log.body            = cicek.options.log.logBody ? uncompressed : '[BODY OMITTED, LENGTH: ' + body.length + ']';
          response.log.responseHeaders = headers;
+         response.log.responseBody    = uncompressed;
 
          response.writeHead (code, headers);
          response.end (body);
@@ -758,7 +793,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
       var outro = function (cached, stream) {
          response.log.code            = cached ? 304 : 200;
-         response.log.body            = '[FILE OMITTED]';
+         response.log.responseBody    = '[FILE OMITTED]';
          response.log.responseHeaders = headers;
 
          response.writeHead (response.log.code, headers);
