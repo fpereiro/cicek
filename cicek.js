@@ -1,5 +1,5 @@
 /*
-çiçek - v3.2.0
+çiçek - v3.2.1
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -556,7 +556,8 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
    cicek.json = function (fun) {
       return function (request, response) {
-         if (type (request.body) !== 'object') return cicek.reply (response, 400, {error: 'Must submit a JSON body.'});
+         var bodyType = type (request.body);
+         if (bodyType !== 'array' && bodyType !== 'object') return cicek.reply (response, 400, {error: 'Must submit a JSON body.'});
          else fun.apply (null, arguments);
       }
    }
@@ -610,7 +611,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
       var errorCb = function (errorType, errorCode) {
          return function (error) {
             cicek.log (['error', 'multipart error'].concat ([errorType + ':', request.headers, error.toString (), error.stack]));
-            if (! Error) cicek.reply (response, errorCode || 400, reply);
+            if (! Error) cicek.reply (response, errorCode || 400, error);
             Error = true;
          }
       }

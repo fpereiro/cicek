@@ -1,11 +1,11 @@
 {
    "name": "cicek",
-   "version": "3.2.0",
+   "version": "3.2.1",
    "description": "HTTP/HTTPS server.",
    "dependencies": {
       "busboy": "0.2.14",
       "dale": "4.3.0",
-      "mime": "1.3.6",
+      "mime": "1.4.1",
       "teishi": "3.11.0"
    },
    "main": "cicek.js",
