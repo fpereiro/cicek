@@ -1,5 +1,5 @@
 /*
-çiçek - v3.2.1
+çiçek - v3.2.2
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -430,6 +430,8 @@ Please refer to readme.md to read the annotated source (but not yet!).
       server.on ('clientError', function (error) {
          cicek.log (['error', 'client error', error.toString (), error.code, error.stack]);
       });
+
+      return server;
    }
 
    // *** THE OUTER LOOP ***
@@ -739,7 +741,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
       return reqHeaders ['if-none-match'] && reqHeaders ['if-none-match'] === resHeaders.etag && code === 200;
    }
 
-   cicek.compress = function (reqHeaders, resHeaders, content, outro, response, path) {
+   cicek.compress = function (reqHeaders, resHeaders, content, outro, response) {
 
       if (resHeaders ['content-encoding'] === false) {
          delete resHeaders ['content-encoding'];

@@ -26,18 +26,19 @@
 
 ## Current status of the project
 
-The current version of çiçek, v3.2.1, is considered to be *unstable* and *somewhat complete*. [Suggestions](https://github.com/fpereiro/cicek/issues) and [patches](https://github.com/fpereiro/cicek/pulls) are welcome. Future changes planned are:
+The current version of çiçek, v3.2.2, is considered to be *unstable* and *somewhat complete*. [Suggestions](https://github.com/fpereiro/cicek/issues) and [patches](https://github.com/fpereiro/cicek/pulls) are welcome. Future changes planned are:
 
+- Improve `cicek.file`'s API.
 - Fix bug when exceptions are thrown in cluster mode.
-- Add an API reference.
-- Add a tutorial.
-- Add annotated source code.
 - Improve initialization of config parameters.
 - Add log deletion.
 - Upgrade insecure requests.
 - Default headers.
 - Default errors.
 - Add missing tests.
+- Add an API reference.
+- Add a tutorial.
+- Add annotated source code.
 
 ## Installation
 
