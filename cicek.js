@@ -1,5 +1,5 @@
 /*
-çiçek - v3.2.2
+çiçek - v3.2.3
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -581,11 +581,11 @@ Please refer to readme.md to read the annotated source (but not yet!).
       request.on ('end', function () {
 
          var parsed;
-         if (request.headers ['content-type'] === 'application/json') {
+         if (request.headers ['content-type'] && request.headers ['content-type'].match (/application\/json/i)) {
             parsed = teishi.p (request.body);
             if (parsed === false) return cicek.reply (response, 400, 'Invalid JSON string: ' + request.body);
          }
-         if (request.headers ['content-type'] === 'application/x-www-form-urlencoded') {
+         if (request.headers ['content-type'] && request.headers ['content-type'].match (/application\/x-www-form-urlencoded/i)) {
             try {
                parsed = query.parse (decodeURIComponent (request.body));
             }
