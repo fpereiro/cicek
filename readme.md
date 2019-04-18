@@ -26,7 +26,7 @@
 
 ## Current status of the project
 
-The current version of çiçek, v3.2.3, is considered to be *unstable* and *somewhat complete*. [Suggestions](https://github.com/fpereiro/cicek/issues) and [patches](https://github.com/fpereiro/cicek/pulls) are welcome. Future changes planned are:
+The current version of çiçek, v3.3.0, is considered to be *unstable* and *somewhat complete*. [Suggestions](https://github.com/fpereiro/cicek/issues) and [patches](https://github.com/fpereiro/cicek/pulls) are welcome. Future changes planned are:
 
 - Improve `cicek.file`'s API.
 - Fix bug when exceptions are thrown in cluster mode.
@@ -44,7 +44,7 @@ The current version of çiçek, v3.2.3, is considered to be *unstable* and *some
 
 `npm install cicek`
 
-To use çiçek, you need node.js v0.8.0 or newer.
+To use çiçek, you need node.js v4.5.0 or newer (if you wish to support node v0.8.0 and above you'll need to change the busboy version to v0.2.14).
 
 ## Source code
 
