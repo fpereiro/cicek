@@ -1,12 +1,12 @@
 {
    "name": "cicek",
-   "version": "3.3.0",
+   "version": "3.4.0",
    "description": "HTTP/HTTPS server.",
    "dependencies": {
       "busboy": "0.3.1",
       "dale":   "4.3.3",
       "mime":   "1.6.0",
-      "teishi": "3.13.2"
+      "teishi": "3.14.1"
    },
    "main": "cicek.js",
    "author": "Federico Pereiro <fpereiro@gmail.com>",

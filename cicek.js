@@ -1,5 +1,5 @@
 /*
-çiçek - v3.3.0
+çiçek - v3.4.0
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -90,7 +90,9 @@ Please refer to readme.md to read the annotated source (but not yet!).
    cicek.cluster = function (cpus, onerror) {
 
       if (! cicek.isMaster) return process.on ('uncaughtException', function (error) {
-         cicek.log (['error', 'worker error', {error: error.toString (), stack: error.stack}]);
+         var message = ['error', 'worker error', {workerId: cluster.worker.id, error: error.toString (), stack: error.stack}];
+         process.send (JSON.stringify (message));
+         cicek.log (message);
          process.exit (1);
       });
 
@@ -239,7 +241,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
       var output = {};
 
-      dale.do (cookieString.split (/;\s+/), function (v) {
+      dale.do (cookieString.split (/;\s*/), function (v) {
          if (! v) return;
          v = v.split ('=');
          var name = v [0];
@@ -250,7 +252,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
             var hmac = crypto.createHmac ('sha256', cicek.options.cookieSecret);
             hmac.update (value);
             var digest = hmac.digest ('base64').replace (/=/g, '');
-            if (signature !== digest) return cicek.log (['error', 'Invalid signature in cookie', {value: value, digest: digest, signature: signature}]);
+            if (signature !== digest) return cicek.log (['error', 'Invalid signature in cookie', {name: name, value: value, digest: digest, signature: signature}]);
          }
          output [name] = value;
       });
@@ -289,7 +291,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
          var signature = '.' + hmac.digest ('base64').replace (/=/g, '');
       }
 
-      var cookie = name + '="' + value + (signature || '') + '"; ';
+      var cookie = name + '="' + value + (signature || '') + '";';
 
       dale.do (options, function (v, k) {
          k = {
@@ -300,7 +302,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
             secure:   'Secure',
             httponly: 'HttpOnly'
          } [k];
-         if (v !== undefined) cookie += k + (v === true ? '' : '=' + v) + '; ';
+         if (v !== undefined) cookie += ' ' + k + (v === true ? '' : '=' + v) + ';';
       });
       return cookie;
    }
