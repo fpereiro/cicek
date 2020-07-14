@@ -1,5 +1,5 @@
 /*
-çiçek - v3.4.0
+çiçek - v3.4.1
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -13,12 +13,11 @@ To run the test first run `node test` at the command prompt and then open the ur
    var isNode = typeof exports === 'object';
    var dale   = isNode ? require ('dale')   : window.dale;
    var teishi = isNode ? require ('teishi') : window.teishi;
-   var type   = teishi.t;
+   var type   = teishi.type;
 
    if (isNode) {
 
       var cicek  = require ('./cicek.js');
-      var log    = teishi.l;
       var reply  = cicek.reply;
       var fs     = require ('fs');
 
@@ -71,7 +70,7 @@ To run the test first run `node test` at the command prompt and then open the ur
       cicek.listen ({port: 8000}, [
          ['all', '*', echo],
          ['get', [], echo],
-         ['get', '/', reply, dale.do (['https://code.jquery.com/jquery-2.1.4.js', 'files/dale/dale.js', 'files/teishi/teishi.js', 'files/test.js'], function (v) {return '<script src="' + v + '"></script>'}).join (''), 'html'],
+         ['get', '/', reply, dale.go (['https://code.jquery.com/jquery-2.1.4.js', 'files/dale/dale.js', 'files/teishi/teishi.js', 'files/test.js'], function (v) {return '<script src="' + v + '"></script>'}).join (''), 'html'],
          ['get', 'files/(*)', cicek.file, ['.', '..', 'node_modules']],
          ['get', ['therats/(*)', 'fileswithdots/(*)'], cicek.file, ['node_modules/dale', 'node_modules/teishi/'], true],
          ['get', [/regex\/capt(u+)re(s)?/i, 'string/capt(u+)re(s)?', '/:first/:second/:third'], echo],
@@ -94,12 +93,12 @@ To run the test first run `node test` at the command prompt and then open the ur
 
          $ ('body').css ({'background-color': 'black', color: 'white'}).append ('<pre id="test"></pre>');
 
-         var log = function () {
+         var clog = function () {
             var output = '\n';
 
             var inner = function (v) {
                if (teishi.simple (v)) return output += v + ' ';
-               dale.do (v, function (v2) {
+               dale.go (v, function (v2) {
                   inner (v2);
                });
             }
@@ -131,8 +130,7 @@ To run the test first run `node test` at the command prompt and then open the ur
          formMultiple.append ('file', blob4);
 
          var tests = [
-            // XXX Make this work
-            //['Check no crash on error', 'get', 'error', 0],
+            ['Check no crash on error', 'get', 'error', 0],
             ['Get a file from another directory', 'get', 'files/dale/dale.js'],
             ['Check that dots are not enabled by default in file serving', 'get', encodeURIComponent ('files/../id_rsa'), 400],
             ['Get file with dots in path where possible', 'get', encodeURIComponent ('fileswithdots/../../cicek.js'), 200, function (data, response) {
@@ -221,7 +219,7 @@ To run the test first run `node test` at the command prompt and then open the ur
             var code    = type (next [arg]) === 'integer'  ? next [arg++] : 200;
             var check   = type (next [arg]) === 'function' ? next [arg++] : undefined;
 
-            log ('Testing:', tag);
+            clog ('Testing:', tag);
 
             $.ajax ({
                method: method,
@@ -233,16 +231,20 @@ To run the test first run `node test` at the command prompt and then open the ur
             }).always (function (a, Status, c) {
                var response = (Status === 'success' || Status === 'notmodified') ? c : a;
                if ((response.getResponseHeader ('content-type') || '').match (/^application\/json/)) {
-                  response.responseText = teishi.p (response.responseText);
+                  response.responseText = teishi.parse (response.responseText);
                }
                if (response.status !== code || (check && ! check (response.responseText, response))) {
-                  if (response.status !== code) log ('Expecting code', code, 'but received code', response.status);
-                  else                          log ('Check function not passed!');
-                  return log ('\n<b style="color: red">There was an error in test "' + tag + '". Aborting.</b>');
+                  if (response.status !== code) clog ('Expecting code', code, 'but received code', response.status);
+                  else                          clog ('Check function not passed!');
+                  return clog ('\n<b style="color: red">There was an error in test "' + tag + '". Aborting.</b>');
                }
-               if (tests.length > 0) return doTest ();
-               log ('\n<b style="color: green">All tests were successful!</b>');
-               teishi.l ('done');
+               if (tests.length > 0) {
+                  // If we triggered an error, the browser will keep on asking a few times and it might bring down all the workers.
+                  // https://www.w3.org/Protocols/rfc2616/rfc2616-sec8.html#sec8.2.4
+                  if (code === 0) return setTimeout (doTest, 500);
+                  return doTest ();
+               }
+               clog ('\n<b style="color: green">All tests were successful!</b>');
             });
          }
 

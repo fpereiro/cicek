@@ -1,5 +1,5 @@
 /*
-çiçek - v3.4.0
+çiçek - v3.4.1
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -26,8 +26,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
    var dale    = require ('dale');
    var teishi  = require ('teishi');
 
-   var type    = teishi.t;
-   var log     = teishi.l;
+   var type    = teishi.type;
 
    var cicek   = exports;
 
@@ -35,7 +34,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
    cicek.http = {
       methods: ['get', 'head', 'post', 'put', 'delete', 'trace', 'connect', 'patch', 'options'],
-      codes:  dale.do (dale.keys (http.STATUS_CODES), function (v) {return parseInt (v)})
+      codes:  dale.go (dale.keys (http.STATUS_CODES), function (v) {return parseInt (v)})
    }
 
    // *** OPTIONS ***
@@ -59,7 +58,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
    // *** HELPER FUNCTIONS ***
 
    cicek.pseudorandom = function (length) {
-      return dale.do (crypto.pseudoRandomBytes (24), function (v) {
+      return dale.go (crypto.pseudoRandomBytes (24), function (v) {
          return ('0' + v.toString (16)).slice (-2);
       }).join ('').slice (0, length || 12);
    }
@@ -77,7 +76,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
          [dontEscape !== undefined, ['dontEscape character', dontEscape, 'string', 'each']]
       ])) return false;
       var toEscape = ['-', '[', ']', '{', '}', '(', ')', '|', '+', '*', '?', '.', '/', '\\', '^', '$'];
-      dale.do (dontEscape, function (v) {
+      dale.go (dontEscape, function (v) {
          toEscape.splice (toEscape.indexOf (v), 1);
       });
       return string.replace (new RegExp ('[' + toEscape.join ('\\') + ']', 'g'), '\\$&');
@@ -114,7 +113,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
          });
       }
 
-      dale.do (dale.times (cpus), spawn);
+      dale.go (dale.times (cpus), spawn);
 
       cluster.on ('exit', function (worker, code, signal) {
          cicek.log (['error', 'worker died', {workerId: worker.id, code: code, signal: signal}]);
@@ -164,7 +163,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
       ]);
 
       console.log ('-----------');
-      log.apply (null, message);
+      teishi.clog.apply (null, message);
    }
 
    cicek.logfile = function (message) {
@@ -225,7 +224,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
          if (! message) return;
       }
 
-      if (options.streamIn) options.streamIn.write (teishi.s (message) + '\n');
+      if (options.streamIn) options.streamIn.write (teishi.str (message) + '\n');
    }
 
    // *** COOKIE ***
@@ -241,7 +240,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
       var output = {};
 
-      dale.do (cookieString.split (/;\s*/), function (v) {
+      dale.go (cookieString.split (/;\s*/), function (v) {
          if (! v) return;
          v = v.split ('=');
          var name = v [0];
@@ -272,13 +271,14 @@ Please refer to readme.md to read the annotated source (but not yet!).
          ]],
          ['options', options, 'object'],
          [function () {return [
-            ['options keys', dale.keys (options),  ['domain', 'path', 'expires', 'maxage', 'secure', 'httponly'], 'eachOf', teishi.test.equal],
+            ['options keys', dale.keys (options),  ['domain', 'path', 'expires', 'maxage', 'secure', 'httponly', 'samesite'], 'eachOf', teishi.test.equal],
             ['options.domain',   options.domain,   ['undefined', 'string'],         'oneOf'],
             ['options.path',     options.path,     ['undefined', 'string'],         'oneOf'],
             ['options.expires',  options.expires,  ['undefined', 'string', 'date'], 'oneOf'],
             ['options.maxage',   options.maxage,   ['undefined', 'integer'],        'oneOf'],
             ['options.secure',   options.secure,   ['undefined', 'boolean'],        'oneOf'],
             ['options.httponly', options.httponly, ['undefined', 'boolean'],        'oneOf'],
+            ['options.samesite', options.samesite, [undefined, 'Lax', 'Strict', 'None'], 'oneOf', teishi.test.equal],
          ]}]
       ])) return false;
 
@@ -293,14 +293,15 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
       var cookie = name + '="' + value + (signature || '') + '";';
 
-      dale.do (options, function (v, k) {
+      dale.go (options, function (v, k) {
          k = {
             expires:  'Expires',
             maxage:   'Max-Age',
             domain:   'Domain',
             path:     'Path',
             secure:   'Secure',
-            httponly: 'HttpOnly'
+            httponly: 'HttpOnly',
+            samesite: 'SameSite'
          } [k];
          if (v !== undefined) cookie += ' ' + k + (v === true ? '' : '=' + v) + ';';
       });
@@ -342,7 +343,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
          if (dale.stopNot (route [0], true, function (v) {
             return type (v) === 'string';
          })) {
-            return dale.do (route [1], function (v2) {
+            return dale.go (route [1], function (v2) {
                routes.push ([route [0]].concat ([v2]).concat (route.slice (2)));
             });
          }
@@ -366,12 +367,12 @@ Please refer to readme.md to read the annotated source (but not yet!).
          if (path.length > 1 && path [path.length - 1] === '/' && path [path.length - 2] !== '\\') path = path.slice (0, -1);
 
          var captures = [];
-         dale.do (path.match (matchParenthesis), function (v, k) {
+         dale.go (path.match (matchParenthesis), function (v, k) {
             if (v === null) return;
             captures.push ([path.indexOf (v.slice (1, v.length)), k]);
          });
 
-         dale.do (path.match (matchParameter), function (v) {
+         dale.go (path.match (matchParameter), function (v) {
             if (v === null) return;
             captures.push ([path.indexOf (v.slice (1, v.length)), v.slice (2, v.length)]);
          });
@@ -384,7 +385,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
             regex = new RegExp (regex);
          }
          catch (error) {return path}
-         captures = dale.do (captures, function (v) {return v [1]});
+         captures = dale.go (captures, function (v) {return v [1]});
          routes [index] [1] = captures ? [regex, captures] : regex;
       });
       if (invalidRoute) return cicek.log (['error', 'invalid route', invalidRoute]);
@@ -498,13 +499,13 @@ Please refer to readme.md to read the annotated source (but not yet!).
             return v2 === request.method;
          })) {
             if (captures) {
-               dale.do (captures, function (v2, k2) {
+               dale.go (captures, function (v2, k2) {
                   request.data.params = request.data.params || {};
                   request.data.params [v2] = match [k2 + 1];
                });
             }
             else {
-               dale.do (match.slice (1), function (v, k) {
+               dale.go (match.slice (1), function (v, k) {
                   request.data.params = request.data.params || {};
                   request.data.params [k] = v;
                });
@@ -520,7 +521,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
             return true;
          }
 
-         dale.do (v [0], function (v2) {
+         dale.go (v [0], function (v2) {
             if (allowedMethods.indexOf (v2) === -1) allowedMethods.push (v2);
          });
 
@@ -538,8 +539,8 @@ Please refer to readme.md to read the annotated source (but not yet!).
    }
 
    cicek.Apres = function (response) {
-      dale.do (response.request.data.files, function (v) {
-         dale.do (v, function (v2) {
+      dale.go (response.request.data.files, function (v) {
+         dale.go (v, function (v2) {
             fs.stat (v2, function (error, stat) {
                if (error && error.code !== 'ENOENT') return cicek.log (['error', 'temp file deletion error 1', v2]);
                if (! error) fs.unlink (v2, function (error) {
@@ -584,7 +585,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
          var parsed;
          if (request.headers ['content-type'] && request.headers ['content-type'].match (/application\/json/i)) {
-            parsed = teishi.p (request.body);
+            parsed = teishi.parse (request.body);
             if (parsed === false) return cicek.reply (response, 400, 'Invalid JSON string: ' + request.body);
          }
          if (request.headers ['content-type'] && request.headers ['content-type'].match (/application\/x-www-form-urlencoded/i)) {
@@ -681,7 +682,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
       var code        = type (arguments [arg]) === 'integer' ? arguments [arg++] : 200;
       var body        = arguments [arg++];
       var headers     = type (arguments [arg]) === 'object' ? arguments [arg++] : {};
-          headers     = dale.obj (headers, teishi.c (cicek.options.headers), function (v, k) {if (v !== undefined) return [k, v]});
+          headers     = dale.obj (headers, teishi.copy (cicek.options.headers), function (v, k) {if (v !== undefined) return [k, v]});
       var contentType = type (arguments [arg]) === 'string'  ? arguments [arg]   : undefined;
       var apres;
 
@@ -692,7 +693,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
          ['HTTP response header value', headers, ['string', 'integer', 'boolean'], 'eachOf'],
          // http://stackoverflow.com/questions/5251824/sending-non-ascii-text-in-http-post-header
          // http://stackoverflow.com/questions/3203190/regex-any-ascii-character
-         dale.do (headers, function (v) {
+         dale.go (headers, function (v) {
             if (! v.match) return [];
             return ['HTTP response header string value', v, /^[\x00-\x7F]+/, teishi.test.match];
          }),
@@ -705,7 +706,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
       var bodyType = type (body);
 
       if (bodyType === 'object' || bodyType === 'array') {
-         var JSON = teishi.s (body);
+         var JSON = teishi.str (body);
          if (JSON === false) return cicek.reply (response, 500, {error: 'Server attempted to serve invalid JSON: ' + body});
          body = JSON;
          if (headers ['content-type'] === undefined) headers ['content-type'] = 'application/json';
@@ -737,7 +738,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
    }
 
    cicek.cache = function (method, body, reqHeaders, resHeaders, code) {
-      if (method !== 'get' && method === 'post') return;
+      if (method === 'post') return;
       if (resHeaders.etag === false) delete resHeaders.etag;
       else if (resHeaders.etag === undefined) resHeaders.etag = cicek.etag (body, true);
       return reqHeaders ['if-none-match'] && reqHeaders ['if-none-match'] === resHeaders.etag && code === 200;
@@ -776,7 +777,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
       var file     = type (arguments [arg]) === 'string'  ? arguments [arg++] : undefined;
       var paths    = type (arguments [arg]) === 'array'   ? arguments [arg++] : [path.dirname (process.argv [1])];
       var headers  = type (arguments [arg]) === 'object' ? arguments [arg++] : {};
-      headers = dale.obj (headers, teishi.c (cicek.options.headers), function (v, k) {if (v !== undefined) return [k, v]});
+      headers = dale.obj (headers, teishi.copy (cicek.options.headers), function (v, k) {if (v !== undefined) return [k, v]});
       var dots     = arguments [arg] === true             ? true              : false;
 
       if (cicek.stop ('cicek.file', [
