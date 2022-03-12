@@ -1,5 +1,5 @@
 /*
-çiçek - v3.4.1
+çiçek - v3.4.2
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -699,7 +699,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
          }),
       ], function (error) {
          cicek.log (['error', 'cicek.reply validation error', error]);
-         if (response && response.connection) cicek.reply (response, 500, {error: error}, {'content-type': 'text/plain; charset=utf-8'});
+         if (response && response.connection && response.connection.writable) cicek.reply (response, 500, {error: error}, {'content-type': 'text/plain; charset=utf-8'});
       })) return false;
 
       if (! body && body !== 0) body = '';
@@ -790,7 +790,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
          [request === undefined, ['file', file, 'string']]
       ], function (error) {
          cicek.log (['error', 'cicek.file validation error', error]);
-         if (response && response.connection) cicek.reply (response, 500, error, {'content-type': 'text/plain; charset=utf-8'});
+         if (response && response.connection && response.connection.writable) cicek.reply (response, 500, {error: error}, {'content-type': 'text/plain; charset=utf-8'});
       }));
 
       if (! file && dots !== true && request.url.match (/\.\./) !== null) return cicek.reply (response, 400, 'No dots (..) allowed in çiçek path, but path is: ' + request.url);
