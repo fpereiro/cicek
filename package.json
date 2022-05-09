@@ -1,6 +1,6 @@
 {
    "name": "cicek",
-   "version": "3.4.2",
+   "version": "3.4.3",
    "description": "HTTP/HTTPS server.",
    "dependencies": {
       "busboy": "0.3.1",

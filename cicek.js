@@ -1,5 +1,5 @@
 /*
-çiçek - v3.4.2
+çiçek - v3.4.3
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -211,6 +211,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
                   write.on ('finish', function () {
                      fs.unlink (options.path, function (error) {
                         if (error) return cicek.log (['error', 'logrotate delete error', error.toString (), error.stack]);
+                        options.stream.destroy ();
                         options.stream = fs.createWriteStream (options.path, {flags: 'a'});
                         options.streamIn.pipe (options.stream);
                      });

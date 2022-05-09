@@ -1,5 +1,5 @@
 /*
-çiçek - v3.4.2
+çiçek - v3.4.3
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -58,7 +58,7 @@ To run the test first run `node test` at the command prompt and then open the ur
 
       cicek.options.cookieSecret  = 'c0okies3cret';
       cicek.options.log.file.path = 'cicek.log';
-      //cicek.options.log.file.rotationSize = 0.1,
+      //cicek.options.log.file.rotationSize = 0,
       //cicek.options.log.file.rotationFreq = 0.1,
       cicek.options.log.body = function (log) {
          return log.url.match (/auth/) === null;
