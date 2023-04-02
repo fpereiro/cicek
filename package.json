@@ -3,20 +3,28 @@
    "version": "3.4.3",
    "description": "HTTP/HTTPS server.",
    "dependencies": {
-      "busboy": "0.3.1",
-      "dale":   "6.0.2",
-      "mime":   "1.6.0",
+      "busboy": "^1.6.0",
+      "dale": "6.0.2",
+      "mime": "1.6.0",
       "teishi": "5.0.3"
    },
    "main": "cicek.js",
    "author": "Federico Pereiro <fpereiro@gmail.com>",
-   "contributors": ["Federico Pereiro <fpereiro@gmail.com>"],
-   "license": [{
-      "type": "Public Domain",
-      "url": "http://github.com/fpereiro/cicek#license"
-   }],
-   "keywords": ["http", "https", "server"],
-   "repository" : {
+   "contributors": [
+      "Federico Pereiro <fpereiro@gmail.com>"
+   ],
+   "license": [
+      {
+         "type": "Public Domain",
+         "url": "http://github.com/fpereiro/cicek#license"
+      }
+   ],
+   "keywords": [
+      "http",
+      "https",
+      "server"
+   ],
+   "repository": {
       "type": "git",
       "url": "http://github.com/fpereiro/cicek.git"
    },
