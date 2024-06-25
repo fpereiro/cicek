@@ -1,5 +1,5 @@
 /*
-çiçek - v3.4.3
+çiçek - v3.4.4
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -535,7 +535,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
    }
 
    cicek.fork = function (request, response, route) {
-      var next = (request.headers ['content-type'] && request.headers ['content-type'].match (/^multipart\/form-data/i)) ? cicek.receiveMulti : cicek.receive;
+      var next = (request.headers ['content-type'] && request.headers ['content-type'].match (/^(multipart\/form-data)|(application\/x-www-form-urlencoded)/i)) ? cicek.receiveMulti : cicek.receive;
       next (request, response, route);
    }
 
@@ -570,7 +570,7 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
    cicek.receive = function (request, response, route) {
 
-      if (request.method === 'post' && (! request.headers ['content-type'] || ! request.headers ['content-type'].match (/^application\/json/i))) return cicek.reply (response, 400, 'All post requests must be either multipart/form-data or application/json!');
+      if (request.method === 'post' && (! request.headers ['content-type'] || ! request.headers ['content-type'].match (/^application\/json/i))) return cicek.reply (response, 400, 'All post requests must be multipart/form-data, application/x-www-urlencoded or application/json!');
 
       // https://nodejs.org/api/stream.html#stream_readable_setencoding_encoding
       // "If you want to read the data as strings, always use this method."
