@@ -1,5 +1,5 @@
 /*
-çiçek - v3.4.4
+çiçek - v3.4.5
 
 Written by Federico Pereiro (fpereiro@gmail.com) and released into the public domain.
 
@@ -570,8 +570,6 @@ Please refer to readme.md to read the annotated source (but not yet!).
 
    cicek.receive = function (request, response, route) {
 
-      if (request.method === 'post' && (! request.headers ['content-type'] || ! request.headers ['content-type'].match (/^application\/json/i))) return cicek.reply (response, 400, 'All post requests must be multipart/form-data, application/x-www-urlencoded or application/json!');
-
       // https://nodejs.org/api/stream.html#stream_readable_setencoding_encoding
       // "If you want to read the data as strings, always use this method."
       request.setEncoding ('utf8');
@@ -588,14 +586,6 @@ Please refer to readme.md to read the annotated source (but not yet!).
          if (request.headers ['content-type'] && request.headers ['content-type'].match (/application\/json/i)) {
             parsed = teishi.parse (request.body);
             if (parsed === false) return cicek.reply (response, 400, 'Invalid JSON string: ' + request.body);
-         }
-         if (request.headers ['content-type'] && request.headers ['content-type'].match (/application\/x-www-form-urlencoded/i)) {
-            try {
-               parsed = query.parse (decodeURIComponent (request.body));
-            }
-            catch (error) {
-               return cicek.reply (response, 400, 'Invalid urlencoded string: ' + request.body);
-            }
          }
          if (parsed) request.body = parsed;
 
